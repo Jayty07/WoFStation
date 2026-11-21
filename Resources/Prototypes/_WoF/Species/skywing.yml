@@ -1,0 +1,218 @@
+# Quadruped SkyWing test species. Placeholder 64x64 sprites (original generic dragon shapes) in
+# Textures/_WoF/Mobs/Species/SkyWing and Textures/_WoF/Mobs/Customization/SkyWing.
+#
+# Layer mapping for four-legged dragons (the humanoid layer names are reused):
+#   Chest = body and neck      Head = head          Eyes = eyes
+#   RArm  = near front leg     LArm = far front leg
+#   RLeg  = near hind leg      LLeg = far hind leg
+#   Wings, Tail, HeadTop (horns) = markings, so they can be recolored
+# "Near" means the side facing the viewer in each direction, so the near-leg layers always draw over the body.
+
+- type: species
+  id: SkyWing
+  name: species-name-skywing
+  roundStart: true
+  prototype: WoFMobSkyWing
+  sprites: WoFSkyWingSprites
+  defaultSkinTone: "#c8402a"
+  markingLimits: WoFSkyWingMarkingLimits
+  dollPrototype: WoFMobSkyWingDummy
+  skinColoration: Hues
+  maleFirstNames: WoFNamesSkyWing
+  femaleFirstNames: WoFNamesSkyWing
+  naming: First
+  minAge: 6
+  youngAge: 10
+  oldAge: 60
+  maxAge: 120
+  minHeight: 0.9
+  defaultHeight: 1.0
+  maxHeight: 1.1
+  minWidth: 0.9
+  defaultWidth: 1.0
+  maxWidth: 1.1
+
+- type: speciesBaseSprites
+  id: WoFSkyWingSprites
+  sprites:
+    Chest: WoFSkyWingBody
+    Head: WoFSkyWingHead
+    Eyes: WoFSkyWingEyes
+    RArm: WoFSkyWingFrontNear
+    LArm: WoFSkyWingFrontFar
+    RLeg: WoFSkyWingHindNear
+    LLeg: WoFSkyWingHindFar
+    RHand: MobHumanoidAnyMarking
+    LHand: MobHumanoidAnyMarking
+    RFoot: MobHumanoidAnyMarking
+    LFoot: MobHumanoidAnyMarking
+    Face: MobHumanoidAnyMarking
+    Snout: MobHumanoidAnyMarking
+    HeadTop: MobHumanoidAnyMarking
+    HeadSide: MobHumanoidAnyMarking
+    Tail: MobHumanoidAnyMarking
+    Wings: MobHumanoidAnyMarking
+    Underwear: MobHumanoidAnyMarking
+    Undershirt: MobHumanoidAnyMarking
+
+- type: humanoidBaseSprite
+  id: WoFSkyWingBody
+  baseSprite:
+    sprite: _WoF/Mobs/Species/SkyWing/parts.rsi
+    state: body
+
+- type: humanoidBaseSprite
+  id: WoFSkyWingHead
+  baseSprite:
+    sprite: _WoF/Mobs/Species/SkyWing/parts.rsi
+    state: head
+
+# The game looks up "<id>Male" / "<id>Female" for the body and head layers, so these must exist.
+# Same art for both until the artists want differences.
+- type: humanoidBaseSprite
+  id: WoFSkyWingBodyMale
+  baseSprite:
+    sprite: _WoF/Mobs/Species/SkyWing/parts.rsi
+    state: body
+
+- type: humanoidBaseSprite
+  id: WoFSkyWingBodyFemale
+  baseSprite:
+    sprite: _WoF/Mobs/Species/SkyWing/parts.rsi
+    state: body
+
+- type: humanoidBaseSprite
+  id: WoFSkyWingHeadMale
+  baseSprite:
+    sprite: _WoF/Mobs/Species/SkyWing/parts.rsi
+    state: head
+
+- type: humanoidBaseSprite
+  id: WoFSkyWingHeadFemale
+  baseSprite:
+    sprite: _WoF/Mobs/Species/SkyWing/parts.rsi
+    state: head
+
+- type: humanoidBaseSprite
+  id: WoFSkyWingEyes
+  baseSprite:
+    sprite: _WoF/Mobs/Species/SkyWing/parts.rsi
+    state: eyes
+
+- type: humanoidBaseSprite
+  id: WoFSkyWingFrontNear
+  baseSprite:
+    sprite: _WoF/Mobs/Species/SkyWing/parts.rsi
+    state: front_near
+
+- type: humanoidBaseSprite
+  id: WoFSkyWingFrontFar
+  baseSprite:
+    sprite: _WoF/Mobs/Species/SkyWing/parts.rsi
+    state: front_far
+
+- type: humanoidBaseSprite
+  id: WoFSkyWingHindNear
+  baseSprite:
+    sprite: _WoF/Mobs/Species/SkyWing/parts.rsi
+    state: hind_near
+
+- type: humanoidBaseSprite
+  id: WoFSkyWingHindFar
+  baseSprite:
+    sprite: _WoF/Mobs/Species/SkyWing/parts.rsi
+    state: hind_far
+
+- type: markingPoints
+  id: WoFSkyWingMarkingLimits
+  onlyWhitelisted: true
+  points:
+    Wings:
+      points: 1
+      required: true
+      defaultMarkings: [ WoFSkyWingWings ]
+    Tail:
+      points: 1
+      required: true
+      defaultMarkings: [ WoFSkyWingTail ]
+    HeadTop:
+      points: 1
+      required: true
+      defaultMarkings: [ WoFSkyWingHorns ]
+    Hair:
+      points: 0
+      required: false
+    FacialHair:
+      points: 0
+      required: false
+
+# --- Markings ---
+
+- type: marking
+  id: WoFSkyWingWings
+  bodyPart: Wings
+  markingCategory: Wings
+  speciesRestriction: [ SkyWing ]
+  coloring:
+    default:
+      type:
+        !type:SimpleColoring
+        color: "#f39c12"
+    layers:
+      wings_bone:
+        type:
+          !type:SkinColoring
+  sprites:
+  - sprite: _WoF/Mobs/Customization/SkyWing/markings.rsi
+    state: wings_membrane
+  - sprite: _WoF/Mobs/Customization/SkyWing/markings.rsi
+    state: wings_bone
+
+- type: marking
+  id: WoFSkyWingTail
+  bodyPart: Tail
+  markingCategory: Tail
+  speciesRestriction: [ SkyWing ]
+  followSkinColor: true
+  sprites:
+  - sprite: _WoF/Mobs/Customization/SkyWing/markings.rsi
+    state: tail
+
+- type: marking
+  id: WoFSkyWingHorns
+  bodyPart: HeadTop
+  markingCategory: HeadTop
+  speciesRestriction: [ SkyWing ]
+  coloring:
+    default:
+      type:
+        !type:SimpleColoring
+        color: "#d4a056"
+  sprites:
+  - sprite: _WoF/Mobs/Customization/SkyWing/markings.rsi
+    state: horns
+
+# --- Names ---
+
+- type: dataset
+  id: WoFNamesSkyWing
+  values:
+  - Blaze
+  - Cinder
+  - Ember
+  - Falcon
+  - Flare
+  - Garnet
+  - Goshawk
+  - Harrier
+  - Kite
+  - Merlin
+  - Osprey
+  - Pyre
+  - Saker
+  - Scorch
+  - Spark
+  - Sunburst
+  - Tinder
+  - Updraft
+  - Vermilion

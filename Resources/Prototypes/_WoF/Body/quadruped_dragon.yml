@@ -1,0 +1,80 @@
+# Body for four-legged dragons. Same organs and parts as the placeholder dragon body; the difference is the
+# wing-arm, whose flight settings don't use the harpy wing flap animation (it would only animate one of the
+# two wing layers). Altitude still lifts the sprite.
+
+- type: body
+  name: "quadruped dragon"
+  id: WoFQuadrupedDragon
+  root: torso
+  slots:
+    head:
+      part: HeadReptilian
+      connections:
+      - torso
+      organs:
+        brain: OrganHumanBrain
+        eyes: OrganHumanEyes
+    torso:
+      part: TorsoReptilian
+      organs:
+        heart: OrganAnimalHeart
+        lungs: OrganHumanLungs
+        stomach: OrganReptilianStomach
+        liver: OrganAnimalLiver
+        kidneys: OrganHumanKidneys
+      connections:
+      - right arm
+      - left arm
+      - right leg
+      - left leg
+      - head
+    right arm:
+      part: WoFRightArmQuadrupedDragon
+      connections:
+      - right hand
+    left arm:
+      part: LeftArmReptilian
+      connections:
+      - left hand
+    right hand:
+      part: RightHandReptilian
+    left hand:
+      part: LeftHandReptilian
+    right leg:
+      part: RightLegReptilian
+      connections:
+      - right foot
+    left leg:
+      part: LeftLegReptilian
+      connections:
+      - left foot
+    right foot:
+      part: RightFootReptilian
+    left foot:
+      part: LeftFootReptilian
+
+- type: entity
+  id: WoFRightArmQuadrupedDragon
+  name: "right dragon foreleg"
+  parent: RightArmReptilian
+  components:
+  - type: BodyPart
+    partType: Arm
+    symmetry: Right
+    toolName: "a right foreleg"
+    onAdd:
+    - type: Flight
+      speedModifier: 1.6
+      activationDelay: 0.6
+      staminaDrainRate: 0
+      needsHands: false
+      flapInterval: 1.2
+      isAnimated: false
+    - type: DragonFlight
+      highSpeedModifier: 1.35
+      highFallDamage:
+        types:
+          Blunt: 20
+      lowFallDamage:
+        types:
+          Blunt: 4
