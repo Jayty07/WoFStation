@@ -17,7 +17,9 @@ public sealed class DragonFlightVisualsSystem : EntitySystem
         base.Initialize();
 
         SubscribeLocalEvent<DragonFlightComponent, AfterAutoHandleStateEvent>(OnHandleState);
-        SubscribeLocalEvent<DragonFlightComponent, ComponentShutdown>(OnShutdown);
+        // ComponentShutdown is already subscribed by the shared DragonFlightSystem, and the engine
+        // allows only one subscription per component/event pair, so reset the sprite on removal instead.
+        SubscribeLocalEvent<DragonFlightComponent, ComponentRemove>(OnRemove);
     }
 
     private void OnHandleState(Entity<DragonFlightComponent> ent, ref AfterAutoHandleStateEvent args)
@@ -35,7 +37,7 @@ public sealed class DragonFlightVisualsSystem : EntitySystem
         _sprite.SetOffset((ent.Owner, sprite), new Vector2(0f, height));
     }
 
-    private void OnShutdown(Entity<DragonFlightComponent> ent, ref ComponentShutdown args)
+    private void OnRemove(Entity<DragonFlightComponent> ent, ref ComponentRemove args)
     {
         if (TryComp<SpriteComponent>(ent, out var sprite))
             _sprite.SetOffset((ent.Owner, sprite), Vector2.Zero);
