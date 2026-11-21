@@ -1,5 +1,6 @@
 - type: department
   id: Logistics
+  editorHidden: true # WoF: only kingdom jobs in the character editor
   name: department-Logistics
   description: department-Cargo-description
   color: "#A46106"
@@ -11,6 +12,7 @@
 
 - type: department
   id: Civilian
+  editorHidden: true # WoF: only kingdom jobs in the character editor
   name: department-Civilian
   description: department-Civilian-description
   color: "#9FED58"
@@ -54,6 +56,7 @@
 
 - type: department
   id: Command
+  editorHidden: true # WoF: only kingdom jobs in the character editor
   name: department-Command
   description: department-Command-description
   color: "#334E6D"
@@ -81,6 +84,7 @@
 
 - type: department
   id: Dignitary
+  editorHidden: true # WoF: only kingdom jobs in the character editor
   name: department-Dignitary
   description: department-Dignitary-description
   color: "#33FE6D"
@@ -93,6 +97,7 @@
 
 - type: department
   id: Engineering
+  editorHidden: true # WoF: only kingdom jobs in the character editor
   name: department-Engineering
   description: department-Engineering-description
   color: "#EFB341"
@@ -105,6 +110,7 @@
 
 - type: department
   id: Medical
+  editorHidden: true # WoF: only kingdom jobs in the character editor
   name: department-Medical
   description: department-Medical-description
   color: "#52B4E9"
@@ -120,6 +126,7 @@
 
 - type: department
   id: Security
+  editorHidden: true # WoF: only kingdom jobs in the character editor
   name: department-Security
   description: department-Security-description
   color: "#DE3A3A"
@@ -136,6 +143,7 @@
 
 - type: department
   id: Epistemics
+  editorHidden: true # WoF: only kingdom jobs in the character editor
   name: department-Epistemics
   description: department-Science-description
   color: "#D381C9"
@@ -151,6 +159,7 @@
 
 - type: department
   id: Silicon
+  editorHidden: true # WoF: only kingdom jobs in the character editor
   name: department-Silicon
   description: department-Silicon-description
   color: "#D381C9"
@@ -160,6 +169,7 @@
 
 - type: department
   id: Specific
+  editorHidden: true # WoF: only kingdom jobs in the character editor
   name: department-Specific
   description: department-Specific-description
   color: "#9FED58"

@@ -1,0 +1,170 @@
+# Kingdom antagonists (3 of the GDD's 5). The Bandit Captain and Rogue Animus need ghost-role spawning
+# and relic magic, so they come later.
+# All three use EE's generic antag systems: AntagSelection picks players who opted in,
+# AntagObjectives/AntagRandomObjectives hand out goals, and the briefing explains the role.
+
+# --- Preferences (shown in the character editor's antag list) ---
+
+- type: antag
+  id: WoFUsurper
+  name: wof-antag-usurper-name
+  antagonist: true
+  setPreference: true
+  objective: wof-antag-usurper-objective
+
+- type: antag
+  id: WoFAssassin
+  name: wof-antag-assassin-name
+  antagonist: true
+  setPreference: true
+  objective: wof-antag-assassin-objective
+
+- type: antag
+  id: WoFSmuggler
+  name: wof-antag-smuggler-name
+  antagonist: true
+  setPreference: true
+  objective: wof-antag-smuggler-objective
+
+# --- Mind roles ---
+
+- type: entity
+  parent: BaseMindRoleAntag
+  id: MindRoleWoFUsurper
+  name: Royal Usurper Role
+  components:
+  - type: MindRole
+    antagPrototype: WoFUsurper
+    roleType: SoloAntagonist
+
+- type: entity
+  parent: BaseMindRoleAntag
+  id: MindRoleWoFAssassin
+  name: Infiltrating Assassin Role
+  components:
+  - type: MindRole
+    antagPrototype: WoFAssassin
+    roleType: SoloAntagonist
+
+- type: entity
+  parent: BaseMindRoleAntag
+  id: MindRoleWoFSmuggler
+  name: Smuggler Role
+  components:
+  - type: MindRole
+    antagPrototype: WoFSmuggler
+    roleType: SoloAntagonist
+
+# --- Starting gear (placeholders until kingdom items exist) ---
+
+- type: startingGear
+  id: WoFAssassinGear
+  storage:
+    back:
+    - CombatKnife
+    - ToxinChemistryBottle
+    - Syringe
+    - ClothingMaskNeckGaiter
+
+- type: startingGear
+  id: WoFSmugglerGear
+  storage:
+    back:
+    - ClothingHandsChameleonThief
+    - Crowbar
+
+- type: startingGear
+  id: WoFUsurperGear
+  storage:
+    back:
+    - KitchenKnife
+
+# --- Game rules ---
+
+# One plotter at most. Never picks the Queen or guards (canBeAntag: false on those jobs).
+- type: entity
+  parent: BaseGameRule
+  id: WoFUsurperRule
+  components:
+  - type: AntagObjectives
+    objectives:
+    - WoFKillQueenObjective
+    - WoFStealSignetObjective
+    - WoFUsurperSurviveObjective
+  - type: AntagSelection
+    agentName: wof-antag-usurper-agent-name
+    definitions:
+    - prefRoles: [ WoFUsurper ]
+      max: 1
+      playerRatio: 20
+      allowNonHumans: true
+      startingGear: WoFUsurperGear
+      mindRoles:
+      - MindRoleWoFUsurper
+      briefing:
+        text: wof-antag-usurper-briefing
+        color: "#9B59B6"
+
+- type: entity
+  parent: BaseGameRule
+  id: WoFAssassinRule
+  components:
+  - type: AntagObjectives
+    objectives:
+    - WoFAssassinKillObjective
+    - WoFAssassinKillObjective
+    - WoFAssassinSurviveObjective
+  - type: AntagSelection
+    agentName: wof-antag-assassin-agent-name
+    definitions:
+    - prefRoles: [ WoFAssassin ]
+      max: 2
+      playerRatio: 15
+      lateJoinAdditional: true
+      allowNonHumans: true
+      startingGear: WoFAssassinGear
+      mindRoles:
+      - MindRoleWoFAssassin
+      briefing:
+        text: wof-antag-assassin-briefing
+        color: "#C0392B"
+
+- type: entity
+  parent: BaseGameRule
+  id: WoFSmugglerRule
+  components:
+  - type: AntagRandomObjectives
+    sets:
+    - groups: WoFSmugglerObjectiveGroups
+      maxPicks: 3
+    maxDifficulty: 3.5
+  - type: AntagSelection
+    agentName: wof-antag-smuggler-agent-name
+    definitions:
+    - prefRoles: [ WoFSmuggler ]
+      max: 3
+      playerRatio: 10
+      lateJoinAdditional: true
+      allowNonHumans: true
+      multiAntagSetting: NotExclusive
+      startingGear: WoFSmugglerGear
+      mindRoles:
+      - MindRoleWoFSmuggler
+      briefing:
+        text: wof-antag-smuggler-briefing
+        color: "#D68910"
+
+# --- Game mode ---
+
+- type: gamePreset
+  id: WoFIntrigue
+  alias:
+  - intrigue
+  - wof
+  name: wof-preset-intrigue-title
+  description: wof-preset-intrigue-description
+  showInVote: true
+  rules:
+  - WoFUsurperRule
+  - WoFAssassinRule
+  - WoFSmugglerRule

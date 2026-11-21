@@ -1,11 +1,13 @@
 using System.Numerics;
 using Content.Shared._WoF.Flight;
 using Robust.Client.GameObjects;
+using DrawDepth = Content.Shared.DrawDepth.DrawDepth;
 
 namespace Content.Client._WoF.Flight;
 
 /// <summary>
-///     Lifts a flying dragon's sprite according to its altitude so height reads at a glance.
+///     Lifts a flying dragon's sprite according to its altitude so height reads at a glance, and draws
+///     high flyers above walls and doors.
 ///     TODO: ground shadow that stays on the tile, banking, and wind particles (see the flight design doc).
 /// </summary>
 public sealed class DragonFlightVisualsSystem : EntitySystem
@@ -35,11 +37,26 @@ public sealed class DragonFlightVisualsSystem : EntitySystem
         };
 
         _sprite.SetOffset((ent.Owner, sprite), new Vector2(0f, height));
+
+        if (ent.Comp.Altitude == FlightAltitude.High)
+        {
+            ent.Comp.OriginalDrawDepth ??= sprite.DrawDepth;
+            _sprite.SetDrawDepth((ent.Owner, sprite), (int) DrawDepth.Overdoors);
+        }
+        else if (ent.Comp.OriginalDrawDepth is { } original)
+        {
+            _sprite.SetDrawDepth((ent.Owner, sprite), original);
+            ent.Comp.OriginalDrawDepth = null;
+        }
     }
 
     private void OnRemove(Entity<DragonFlightComponent> ent, ref ComponentRemove args)
     {
-        if (TryComp<SpriteComponent>(ent, out var sprite))
-            _sprite.SetOffset((ent.Owner, sprite), Vector2.Zero);
+        if (!TryComp<SpriteComponent>(ent, out var sprite))
+            return;
+
+        _sprite.SetOffset((ent.Owner, sprite), Vector2.Zero);
+        if (ent.Comp.OriginalDrawDepth is { } original)
+            _sprite.SetDrawDepth((ent.Owner, sprite), original);
     }
 }

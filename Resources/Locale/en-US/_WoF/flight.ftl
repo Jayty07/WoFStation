@@ -4,3 +4,7 @@ wof-flight-already-high = You're already as high as you can go.
 wof-flight-descend = You drop down closer to the ground.
 wof-flight-land = You land.
 wof-flight-fall = You crash to the ground!
+wof-flight-roof-above = There's a roof above you. Get outside first.
+wof-flight-roof-below = There's a roof below you. You can't come down here.
+wof-flight-no-room = There's no room to come down here.
+wof-flight-tumble-off-roof = You crash onto a roof and tumble off!

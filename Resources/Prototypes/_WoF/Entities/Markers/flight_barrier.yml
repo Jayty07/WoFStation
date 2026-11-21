@@ -1,0 +1,25 @@
+# Invisible wall that only stops dragons flying at high altitude. Walkers and low flyers pass through.
+# Place along map edges, around mountains and on top of tall towers. Hidden in game like other markers
+# (admins can show markers to see them).
+
+- type: entity
+  parent: MarkerBase
+  id: WoFFlightBarrier
+  name: flight barrier
+  description: Stops dragons at high altitude. Place along map edges, mountains and tall towers.
+  components:
+  - type: Sprite
+    layers:
+    - state: red
+      shader: unshaded
+  - type: Physics
+    bodyType: Static
+  - type: Fixtures
+    fixtures:
+      fix1:
+        shape:
+          !type:PhysShapeAabb
+          bounds: "-0.5,-0.5,0.5,0.5"
+        layer:
+        - FlightBarrier
+        hard: true

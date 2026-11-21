@@ -1,5 +1,6 @@
 - type: department
   id: Justice
+  editorHidden: true # WoF: only kingdom jobs in the character editor
   name: department-Justice
   description: department-Justice-description
   color: "#701442"

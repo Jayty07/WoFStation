@@ -47,11 +47,39 @@ public sealed partial class DragonFlightComponent : Component
     public float HighVisualOffset = 0.4f;
 
     /// <summary>
-    ///     Collision bits removed from the dragon's fixtures while airborne. The default lets a flying
-    ///     dragon pass over tables, crates, railings and half walls, but walls and doors still block it.
+    ///     Collision bits ignored at low altitude: tables, crates, railings and half walls.
+    ///     Walls, doors and tall machines still block.
     /// </summary>
     [DataField]
-    public int AirborneIgnoredMask = (int) (CollisionGroup.MidImpassable | CollisionGroup.LowImpassable);
+    public int LowIgnoredMask = (int) (CollisionGroup.MidImpassable | CollisionGroup.LowImpassable);
+
+    /// <summary>
+    ///     Collision bits ignored at high altitude: everything on the ground, walls and doors included.
+    ///     Secure areas are protected by roofs instead, which stop a dragon from descending into them.
+    /// </summary>
+    [DataField]
+    public int HighIgnoredMask = (int) (CollisionGroup.Impassable | CollisionGroup.HighImpassable
+                                        | CollisionGroup.MidImpassable | CollisionGroup.LowImpassable);
+
+    /// <summary>
+    ///     Collision bits added at high altitude, so mapped flight barriers (map edges, mountains,
+    ///     tall towers) still stop high flyers.
+    /// </summary>
+    [DataField]
+    public int HighAddedMask = (int) CollisionGroup.FlightBarrier;
+
+    /// <summary>
+    ///     Layers that make a tile unsafe to come down onto from high altitude (walls, doors, tall machines).
+    /// </summary>
+    [DataField]
+    public int LandingBlockedLayers = (int) (CollisionGroup.Impassable | CollisionGroup.HighImpassable);
+
+    /// <summary>
+    ///     How far, in tiles, to look for open ground when a dragon falls out of the sky
+    ///     over a roof or wall.
+    /// </summary>
+    [DataField]
+    public int FallSearchRadius = 8;
 
     /// <summary>
     ///     Damage taken when the dragon drops out of the sky from high altitude without descending first
@@ -67,11 +95,20 @@ public sealed partial class DragonFlightComponent : Component
     public DamageSpecifier? LowFallDamage;
 
     /// <summary>
-    ///     Bits actually removed when taking off, per fixture, so landing only restores what we took away
-    ///     and does not fight other systems (e.g. climbing) that also change collision masks.
+    ///     Mask bits this system removed or added, per fixture, so changing altitude only undoes our own
+    ///     changes and doesn't fight other systems (e.g. climbing) that also edit collision masks.
     /// </summary>
     [DataField]
     public Dictionary<string, int> RemovedMaskBits = new();
+
+    [DataField]
+    public Dictionary<string, int> AddedMaskBits = new();
+
+    /// <summary>
+    ///     Client-only: the sprite's draw depth before it was raised for high altitude.
+    /// </summary>
+    [ViewVariables]
+    public int? OriginalDrawDepth;
 }
 
 [Serializable, NetSerializable]

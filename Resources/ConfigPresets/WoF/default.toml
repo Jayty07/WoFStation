@@ -1,0 +1,11 @@
+# Wings of Fire server defaults. Load on a hosted server by adding this to server_config.toml:
+#   [config]
+#   presets = "EinsteinEngines/default,WoF/default"
+
+[game]
+map_pool = "WoFSliceMapPool"
+defaultpreset = "WoFIntrigue"
+fallbackpreset = "WoFIntrigue"
+
+[build]
+fork_id = "WoFDragonStation"

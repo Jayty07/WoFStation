@@ -1,8 +1,9 @@
 ﻿[game]
 # Straight in-game baby
 lobbyenabled = false
-# Dev map for faster loading & convenience
-map = "Dev"
+# WoF: kingdom test map and game mode instead of the Dev map
+map = "WoFTestCourt"
+defaultpreset = "WoFIntrigue"
 role_timers = false
 
 [ghost]
