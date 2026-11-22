@@ -114,7 +114,8 @@ function stepsOut(m, x, y, dx, dy, max) {
   return 99;
 }
 
-// Shade a mask. opts: far (one tone darker), scales (texture), flat (no light/shadow bands), thin (lighter edges).
+// Shade a mask. opts: far (one tone darker), scales (texture), plates (square scutes), flat (no light/shadow
+// bands), thin (lighter edges).
 function shade(m, opts = {}) {
   const p = new Pic(), off = opts.far ? -18 : 0;
   const inside = (a, b) => a < 0 || b < 0 || a >= N || b >= N || m.has(a, b);
@@ -132,6 +133,8 @@ function shade(m, opts = {}) {
       else if (toShadow <= 3) v = T.mid;
       else v = T.base;
       if (opts.scales && v === T.base && y % 3 === 0 && (x + ((y / 3) & 1) * 2) % 4 === 0) v = T.mid;
+      // plates: staggered square scutes (a seam every 3 rows, and every 4 columns offset per row of plates)
+      if (opts.plates && (v === T.base || v === T.light) && (y % 3 === 0 || (x + Math.floor(y / 3) * 2) % 4 === 0)) v = v === T.light ? T.base : T.mid;
     }
     p.set(x, y, Math.max(0, v + (v > T.outlineHi ? off : off / 2)));
   });
@@ -258,7 +261,7 @@ const CLAWS = {
   footE_far: [[16, 48], [17, 48]],
 };
 function limbPic(key, far) {
-  const p = shade(LIMB[key](), { far, scales: !key.startsWith('hand') && !key.startsWith('foot') });
+  const p = shade(LIMB[key](), { far, plates: !key.startsWith('hand') && !key.startsWith('foot') });
   if (CLAWS[key]) p.dot(CLAWS[key], T.claw);
   return p;
 }
@@ -291,10 +294,10 @@ function wingShape(spec, dx = 0, dy = 0) {
   // Knuckles: spread a little across the hand, so the fingers start side by side instead of from one point.
   const knuckles = tips.map((t, i) => {
     const vx = t[0] - palm[0], vy = t[1] - palm[1], l = Math.hypot(vx, vy), ux = vx / l, uy = vy / l;
-    const k = (i - (tips.length - 1) / 2) * 1.1;
+    const k = (i - (tips.length - 1) / 2) * 1.8;
     return [palm[0] + ux * 2.5 - uy * k, palm[1] + uy * 2.5 + ux * k];
   });
-  const bone = M(), mem = M(), claws = [];
+  const bone = M(), mem = M(), claws = [], segs = [[sh, elbow, 2], [elbow, palm, 2]];
   // membrane between neighbouring fingers
   for (let i = 1; i < tips.length; i++) {
     const a = tips[i - 1], b = tips[i];
@@ -309,9 +312,11 @@ function wingShape(spec, dx = 0, dy = 0) {
     bone.capsule(...palm, 1.2, ...knuckles[i], 1.1);    // hand bone
     bone.capsule(...knuckles[i], 0.9, ...t, 0.65);      // finger
     claws.push([t, [t[0] - knuckles[i][0], t[1] - knuckles[i][1]]]);
+    segs.push([knuckles[i], t, 1]);
   });
   mem.minus(bone);
-  return { bone, mem, claws, palm };
+  const arm = M().capsule(...sh, 2.3, ...elbow, 2).capsule(...elbow, 2, ...palm, 1.6).ellipse(palm[0], palm[1], 2.4, 1.5);
+  return { bone, mem, claws, palm, segs, arm };
 }
 // Side view: the hand rests just behind the near front paw; the elbow sits on top of the back.
 const WING_E = { sh: [36, 29], elbow: [24, 26], palm: [34, 46.8], fan: [[74, 32], [64, 42], [55, 50], [47, 49]] };
@@ -335,22 +340,44 @@ function wingPics(w, far, hide) {
   const bone = shade(w.bone, { thin: true, far });
   for (const [t, d] of w.claws) claw(bone, Math.round(t[0] - 0.5), Math.round(t[1] - 0.5), d[0], d[1], d[0] < 0 ? 1 : -1);
   for (const p of w.palms) { const x = Math.round(p[0] - 0.5), y = Math.round(p[1] - 0.5), s = p[2]; bone.dot([[x + 2 * s, y + 1], [x + 3 * s, y + 1], [x - 2 * s, y + 1]], T.claw); }
+  // Plate seams: a dark line across each arm and finger bone every 3 pixels, like segmented scutes.
+  for (const [a, b, half] of w.segs) {
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]), ux = (b[0] - a[0]) / len, uy = (b[1] - a[1]) / len;
+    for (let k = 3; k < len - 1.5; k += 3) for (let o = -half; o <= half; o++) {
+      const x = Math.round(a[0] + ux * k - uy * o - 0.5), y = Math.round(a[1] + uy * k + ux * o - 0.5);
+      if (bone.get(x, y) > T.outlineHi) bone.set(x, y, T.outlineHi);
+    }
+  }
+  // Outline the arm and hand where they lie over the body or open air, so the wing reads as sitting on top.
+  const bm = maskOfPic(bone);
+  w.arm.each((x, y) => {
+    if (!bm.has(x, y)) return;
+    const outside = (a, b) => !bm.has(a, b) && !w.mem.has(a, b);
+    if (outside(x, y + 1) || outside(x + 1, y)) bone.set(x, y, T.outlineLo);
+    else if (outside(x, y - 1) || outside(x - 1, y)) bone.set(x, y, T.outlineHi);
+  });
   if (hide) clearMask(bone, hide);
-  // Membrane: outline only where it meets open air; next to a bone it stays membrane coloured, so even
-  // one-pixel strips between fingers read as skin.
+  // Membrane depth: darker near the hand, lighter toward the fingertips, with a thin shadow under each bone
+  // (light comes from the top left). Outline only where it meets open air, so even one-pixel strips between
+  // fingers read as skin.
   const mem = new Pic(), boneMask = maskOfPic(bone);
   const open = (x, y) => x >= 0 && y >= 0 && x < N && y < N && !w.mem.has(x, y) && !boneMask.has(x, y);
+  const tones = [164, 182, 196, 210, 222];
   w.mem.each((x, y) => {
     if (boneMask.has(x, y)) return;
-    const nearBone = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => boneMask.has(x + a, y + b));
-    mem.set(x, y, open(x, y + 1) || open(x + 1, y) ? T.outlineHi : open(x, y - 1) || open(x - 1, y) ? T.base : nearBone ? T.base : T.light);
+    const d = Math.min(...w.palms.map(p => Math.hypot(x + 0.5 - p[0], y + 0.5 - p[1])));
+    let v = tones[Math.min(4, Math.max(0, Math.floor((d - 8) / 7)))];
+    if (boneMask.has(x - 1, y - 1) || boneMask.has(x, y - 1)) v = Math.max(T.shade, v - 30);
+    if (open(x, y + 1) || open(x + 1, y)) v = T.outlineHi;
+    else if (open(x, y - 1) || open(x - 1, y)) v -= 12;
+    mem.set(x, y, v);
   });
   if (far) for (let i = 0; i < N * N; i++) if (mem.v[i] > T.outlineHi) mem.v[i] -= 18;
   return { bone, membrane: mem };
 }
 // s = which way the palm claws point (+1 = toward +x)
 const withPalms = (w, s) => ({ ...w, palms: [[w.palm[0], w.palm[1], s]] });
-function mirrorShape(w) { return { bone: w.bone.mirrored(), mem: w.mem.mirrored(), claws: w.claws.map(([t, d]) => [[N - t[0], t[1]], [-d[0], d[1]]]), palm: [N - w.palm[0], w.palm[1]] }; }
+function mirrorShape(w) { return { bone: w.bone.mirrored(), mem: w.mem.mirrored(), claws: w.claws.map(([t, d]) => [[N - t[0], t[1]], [-d[0], d[1]]]), palm: [N - w.palm[0], w.palm[1]], arm: w.arm.mirrored(), segs: w.segs.map(([a, b, h]) => [[N - a[0], a[1]], [N - b[0], b[1]], h]) }; }
 
 function wings(dir) {
   if (dir === 'W') { const e = wings('E'); return { bone: e.bone.mirrored(), membrane: e.membrane.mirrored() }; }
@@ -363,7 +390,7 @@ function wings(dir) {
   const left = wingShape(dir === 'S' ? WING_S : WING_N), right = mirrorShape(left);
   const both = {
     bone: left.bone.clone().union(right.bone), mem: left.mem.clone().union(right.mem),
-    claws: left.claws.concat(right.claws), palms: [[left.palm[0], left.palm[1], -1], [right.palm[0], right.palm[1], 1]],
+    claws: left.claws.concat(right.claws), arm: left.arm.clone().union(right.arm), segs: left.segs.concat(right.segs), palms: [[left.palm[0], left.palm[1], -1], [right.palm[0], right.palm[1], 1]],
   };
   both.mem.minus(both.bone);
   if (dir === 'S') return wingPics(both, false, frontOccluder());
@@ -465,10 +492,10 @@ const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
 const DRAW = [
   ['tail', 'skin'], ['tail_underside', 'under'],
   ['hind_far', 'skin'], ['front_far', 'skin'], ['body', 'skin'], ['underbelly', 'belly'],
-  ['hind_near', 'skin'], ['front_near', 'skin'], ['wings_membrane', 'membrane'], ['wings_bone', 'skin'], ['head', 'skin'], ['eyes', 'eyes'], ['horns', 'horns'],
+  ['hind_near', 'skin'], ['front_near', 'skin'], ['wings_membrane', 'membrane'], ['wings_bone', 'wingbone'], ['head', 'skin'], ['eyes', 'eyes'], ['horns', 'horns'],
 ];
 // Default colours: keep in sync with Resources/Prototypes/_WoF/Species/skywing.yml.
-const COL = { skin: '#c8402a', membrane: '#f6c977', belly: '#f2c14e', horns: '#d4a056', under: '#f2c14e', spines: '#7a1c10', eyes: '#ffd23a' };
+const COL = { skin: '#c8402a', wingbone: '#9e2a1c', membrane: '#f6c977', belly: '#f2c14e', horns: '#d4a056', under: '#f2c14e', spines: '#7a1c10', eyes: '#ffd23a' };
 
 const join = (...pics) => pics.reduce((a, p) => a.over(p), new Pic());
 

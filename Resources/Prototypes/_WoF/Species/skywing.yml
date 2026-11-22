@@ -165,9 +165,11 @@
         !type:SimpleColoring
         color: "#f6c977"
     layers:
+      # A deeper red than the scales so the folded wing reads on top of the body.
       wings_bone:
         type:
-          !type:SkinColoring
+          !type:SimpleColoring
+          color: "#9e2a1c"
   sprites:
   - sprite: _WoF/Mobs/Customization/SkyWing/markings.rsi
     state: wings_membrane

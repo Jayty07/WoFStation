@@ -58,7 +58,7 @@ Which legs go in which state depends on the direction:
 | State | Layer | Coloring |
 |---|---|---|
 | `wings_membrane` | Wings (drawn over the body, under the head) | Wing color (SkyWing default pale gold `#f6c977`) |
-| `wings_bone` | Wings | Follows scale color |
+| `wings_bone` | Wings | Wing bone color (default deep red `#9e2a1c`) |
 | `tail` | Tail (behind the body) | Follows scale color |
 | `tail_underside` | Tail | Underside color (default gold `#f2c14e`) |
 | `horns` | HeadTop | Horn color (default `#d4a056`) |
