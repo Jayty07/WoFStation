@@ -340,6 +340,7 @@ function wingShape(spec, dx = 0, dy = 0) {
   bone.capsule(...sh, rU, ...elbow, rE);                // upper arm
   bone.capsule(...elbow, rE, ...palm, rW);              // forearm
   bone.ellipse(palm[0], palm[1], 2.4, 1.5);             // hand on the ground
+  for (const k of knuckles) bone.capsule(...palm, 1.15, ...k, 1);  // hand bones: every finger connects to the hand
   paths.forEach((pts, i) => {
     const rad = [0.82, 0.78, 0.72, 0.66, 0.6];
     for (let j = 0; j < 4; j++) bone.capsule(...pts[j], rad[j], ...pts[j + 1], rad[j + 1]); // finger segments
@@ -352,12 +353,12 @@ function wingShape(spec, dx = 0, dy = 0) {
   return { bone, mem, claws, palm, segs, arm, joints };
 }
 // Side view: the hand rests just behind the near front paw; the elbow sits on top of the back.
-const WING_E = { lead: 0.6, sh: [36, 29], elbow: [28, 22.5], palm: [34, 46.8], fan: [[70, 32], [63, 41], [57, 45], [52, 37]] };
+const WING_E = { lead: 0.6, knuckle: 1, sh: [36, 29], elbow: [28, 22.5], palm: [34, 46.8], fan: [[70, 32], [63, 41], [57, 45], [52, 37]] };
 // Front/back views (left wing; the right one is mirrored): the hand rests outside the legs.
 // Front view: the folded wings are seen almost edge-on, as narrow upright bundles just outside the shoulders and
 // front legs. The fingers rise nearly straight from the wrist on the ground to about head height, claws stepped
 // one above the other, with thin slivers of membrane between them.
-const WING_S = { bend: 3, spread: 3, armWeb: true, knuckle: 3, armRadii: [1.6, 1.4, 1.2], sh: [25.5, 27], elbow: [20.5, 23], palm: [16.5, 46.4], tips: [[10.5, 4.5], [13.8, 8], [17, 11.5], [20, 15]] };
+const WING_S = { bend: 3, spread: 3, lead: 0.6, armWeb: true, knuckle: 1, armRadii: [1.6, 1.4, 1.2], sh: [25.5, 27], elbow: [20.5, 23], palm: [16.5, 46.4], tips: [[7.5, 5], [11.5, 7.5], [15.8, 10.5], [20, 14.5]] };
 // Back view: the wings open into a wide V. The wrist rests on the ground right beside the hind leg, the shortest
 // finger stands nearly straight up next to the body, and the longer fingers fan outward to the top corners with
 // membrane across the whole fan. A short arm runs from the shoulder out to the elbow and down to the wrist.
