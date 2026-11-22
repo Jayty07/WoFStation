@@ -189,7 +189,11 @@ function head(dir) {
   if (dir === 'S') {
     const jaw = spikes([[[29, 13], [25, 17], [29.5, 15]], [[35, 13], [39, 17], [34.5, 15]]]);
     const p = shade(jaw, { far: true }).over(shade(m));
-    return p.dot([[31, 16], [33, 16]], T.deep).dot([[30, 9], [34, 9]], T.outlineHi).dot([[32, 13]], T.light); // nostrils, brow, nose spike
+    p.dot([[31, 16], [32, 16]], T.deep).dot([[31, 13], [32, 13]], T.light);          // nostrils, nose spike
+    // angry brows like the side view: dark, slanting down toward the middle, right over the eyes
+    // (below the horn bases, which draw on top of the head)
+    p.dot([[28, 9], [29, 9], [30, 10], [31, 10], [35, 9], [34, 9], [33, 10], [32, 10]], T.outlineLo);
+    return p;
   }
   if (dir === 'N') {
     const jaw = spikes([[[29, 12.5], [25, 16], [29.5, 14.5]], [[35, 12.5], [39, 16], [34.5, 14.5]]]);
@@ -206,7 +210,7 @@ function head(dir) {
 
 function eyes(dir) {
   const p = new Pic();
-  if (dir === 'S') return p.dot([[30, 10], [34, 10]], 255);
+  if (dir === 'S') return p.dot([[30, 11], [33, 11]], 255);
   if (dir === 'E') return p.dot([[50, 9], [51, 9]], 255);
   if (dir === 'W') return eyes('E').mirrored();
   return p;
@@ -463,7 +467,9 @@ function tailMask(dir) {
   const m = M(), chain = m.chain.bind(m);
   m.chain = pts => chain(pts.map(([x, y, rad]) => [x, y, Math.max(0.9, rad * TAIL_THICKNESS)]));
   if (dir === 'E') return m.chain([[13, 31, 3.4], [7, 34, 2.9], [3, 39, 2.4], [2.5, 44, 2], [5, 48, 1.8], [11, 50, 1.6], [19, 50.5, 1.4], [27, 50, 1.2], [32, 48, 1], [32.5, 45, 0.8], [30, 43.8, 0.7], [28.3, 45.3, 0.5]]);
-  if (dir === 'S') return m.chain([[26, 45, 2], [21, 48.5, 1.9], [13, 50.5, 1.7], [6, 50, 1.5], [2, 46.5, 1.3], [2, 42, 1.1], [4.5, 39, 0.9], [7.5, 39.8, 0.7], [7.5, 42.3, 0.5]]);
+  // front view: the tail lies behind the dragon, so the body and wing hide most of it; it sweeps out to the
+  // side behind the wing and curls up there, a little higher on screen than the feet (farther away)
+  if (dir === 'S') return m.chain([[26, 38, 2.2], [19, 37.5, 2], [12, 36.5, 1.8], [7, 35, 1.5], [3.5, 32, 1.3], [3, 28, 1.1], [5, 25.5, 0.9], [7.5, 26.5, 0.7], [7.5, 29, 0.5]]);
   return m.chain([[32, 36, 3.2], [32, 43, 2.8], [32.5, 49, 2.27], [35, 54, 1.8], [40, 57.5, 1.4], [46, 58.5, 1.07], [51, 56.5, 0.8], [52.5, 53, 0.6], [50.5, 51, 0.47]]);
 }
 function tail(dir) {
