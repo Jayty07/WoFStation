@@ -343,11 +343,14 @@ function wingShape(spec, dx = 0, dy = 0) {
 // Side view: the hand rests just behind the near front paw; the elbow sits on top of the back.
 const WING_E = { sh: [36, 29], elbow: [24, 26], palm: [34, 46.8], fan: [[76, 32], [66, 41], [57, 46], [49, 42]] };
 // Front/back views (left wing; the right one is mirrored): the hand rests outside the legs.
-// The elbow stands up beside the neck and the forearm runs down the inner side to the hand, with membrane
-// filling the arm triangle; the fingers fan out on the outer side, each visible from fingertip to palm.
-const WING_S = { bend: 6, spread: 6, armWeb: true, knuckle: 3.8, armRadii: [1.7, 1.5, 1.3], sh: [25.5, 27], elbow: [23, 11], palm: [12, 46.4], tips: [[18.5, 1], [14, 2.5], [9.5, 6], [6, 12.5]] };
-// Back view: the same fold seen from behind, with the hands on the ground just outside the hind legs.
-const WING_N = { bend: 6, spread: 6, armWeb: true, knuckle: 3.8, armRadii: [1.7, 1.5, 1.3], sh: [28, 24], elbow: [24, 11], palm: [12.5, 47.6], tips: [[19.5, 1], [15, 2.5], [10.5, 6], [7, 12.5]] };
+// Front view: the folded wings are seen almost edge-on, as narrow upright bundles just outside the shoulders and
+// front legs. The fingers rise nearly straight from the wrist on the ground to about head height, claws stepped
+// one above the other, with thin slivers of membrane between them.
+const WING_S = { bend: 3, spread: 2, armWeb: true, knuckle: 1.8, armRadii: [1.6, 1.4, 1.2], sh: [25.5, 27], elbow: [20.5, 23], palm: [16.5, 46.4], tips: [[12.5, 3], [14.8, 6.5], [17.1, 10], [19.4, 14]] };
+// Back view: the wings open into a wide V. The wrist rests on the ground right beside the hind leg, the shortest
+// finger stands nearly straight up next to the body, and the longer fingers fan outward to the top corners with
+// membrane across the whole fan. A short arm runs from the shoulder out to the elbow and down to the wrist.
+const WING_N = { bend: 2, spread: 8, armWeb: true, knuckle: 3, armRadii: [1.7, 1.5, 1.3], sh: [28, 25], elbow: [17, 29], palm: [19, 46.5], tips: [[18.5, 11], [12, 3], [5.5, 1.5], [1, 9]] };
 
 // Everything that stands in front of the wings in the front view.
 function frontOccluder() {
