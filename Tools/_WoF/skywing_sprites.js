@@ -352,12 +352,12 @@ function wingShape(spec, dx = 0, dy = 0) {
   return { bone, mem, claws, palm, segs, arm, joints };
 }
 // Side view: the hand rests just behind the near front paw; the elbow sits on top of the back.
-const WING_E = { sh: [36, 29], elbow: [28, 22.5], palm: [34, 46.8], fan: [[70, 32], [63, 41], [56, 46], [49, 42]] };
+const WING_E = { lead: 0.6, sh: [36, 29], elbow: [28, 22.5], palm: [34, 46.8], fan: [[70, 32], [63, 41], [57, 45], [52, 37]] };
 // Front/back views (left wing; the right one is mirrored): the hand rests outside the legs.
 // Front view: the folded wings are seen almost edge-on, as narrow upright bundles just outside the shoulders and
 // front legs. The fingers rise nearly straight from the wrist on the ground to about head height, claws stepped
 // one above the other, with thin slivers of membrane between them.
-const WING_S = { bend: 3, spread: 2, armWeb: true, armRadii: [1.6, 1.4, 1.2], sh: [25.5, 27], elbow: [20.5, 23], palm: [16.5, 46.4], tips: [[12.5, 3], [14.8, 6.5], [17.1, 10], [19.4, 14]] };
+const WING_S = { bend: 3, spread: 3, armWeb: true, knuckle: 3, armRadii: [1.6, 1.4, 1.2], sh: [25.5, 27], elbow: [20.5, 23], palm: [16.5, 46.4], tips: [[10.5, 4.5], [13.8, 8], [17, 11.5], [20, 15]] };
 // Back view: the wings open into a wide V. The wrist rests on the ground right beside the hind leg, the shortest
 // finger stands nearly straight up next to the body, and the longer fingers fan outward to the top corners with
 // membrane across the whole fan. A short arm runs from the shoulder out to the elbow and down to the wrist.
@@ -424,7 +424,7 @@ function mirrorShape(w) { return { bone: w.bone.mirrored(), mem: w.mem.mirrored(
 function wings(dir) {
   if (dir === 'W') { const e = wings('E'); return { bone: e.bone.mirrored(), membrane: e.membrane.mirrored() }; }
   if (dir === 'E') {
-    const near = withPalms(wingShape(WING_E), 1), farW = withPalms(wingShape(WING_E, -6, 1), 1);
+    const near = withPalms(wingShape(WING_E), 1), farW = withPalms(wingShape(WING_E, -4, 1), 1);
     // the far wing is on the far side of the body, so the body, head, near wing and every leg cover it
     const hide = torsoMask('E').union(headMask('E')).union(near.bone).union(near.mem);
     for (const k of ['armE_near', 'armE_far', 'handE_near', 'handE_far', 'legE_near', 'legE_far', 'footE_near', 'footE_far']) hide.union(LIMB[k]());
