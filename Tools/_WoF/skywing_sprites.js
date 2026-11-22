@@ -311,7 +311,9 @@ function wingShape(spec, dx = 0, dy = 0) {
     const turn = a => { const px = -uy, py = ux, c = Math.cos(a), sn = Math.sin(a); [ux, uy] = [ux * c + px * sn, uy * c + py * sn]; };
     // fan the fingers apart as they leave the hand (front finger forward, back finger back) so membrane shows
     // right down to the palm, then curl every finger inward at its joints
-    turn(-1.5 * BEND + ((tips.length - 1) / 2 - i) * SPREAD);
+    // lead: how far the finger first turns outward to compensate for the curl (1.5 lands the tip on target;
+    // 0 aims straight at the tip so the finger only curls inward and never bows outward)
+    turn(-(spec.lead ?? 1.5) * BEND + ((tips.length - 1) / 2 - i) * SPREAD);
     const pts = [k0];
     for (let j = 0; j < 4; j++) {
       if (j > 0) { turn(BEND); joints.push([pts[j], [ux, uy]]); }
@@ -359,7 +361,7 @@ const WING_S = { bend: 3, spread: 2, armWeb: true, armRadii: [1.6, 1.4, 1.2], sh
 // Back view: the wings open into a wide V. The wrist rests on the ground right beside the hind leg, the shortest
 // finger stands nearly straight up next to the body, and the longer fingers fan outward to the top corners with
 // membrane across the whole fan. A short arm runs from the shoulder out to the elbow and down to the wrist.
-const WING_N = { bend: 2, spread: 8, armWeb: true, knuckle: 2.6, armRadii: [1.7, 1.5, 1.3], sh: [28, 25], elbow: [17, 29], palm: [19, 46.5], tips: [[13.5, 10], [12, 3], [5.5, 1.5], [1, 9]] };
+const WING_N = { bend: 9, spread: 4, lead: 0, armWeb: true, knuckle: 2.6, armRadii: [1.7, 1.5, 1.3], sh: [28, 25], elbow: [17, 29], palm: [19, 46.5], tips: [[13.5, 10.5], [9.5, 5.5], [4.5, 5], [1.5, 11.5]] };
 
 // Everything that stands in front of the wings in the front view.
 function frontOccluder() {
