@@ -269,34 +269,52 @@ function limb(kind, side, dir) {
   return limb(kind, side === 'r' ? 'l' : 'r', 'E').mirrored();
 }
 
-// ---- Wings (Wings layer, drawn above the body and legs but under the head). Folded the way SkyWings
-// rest: a thick wing arm runs from the shoulder down to the wrist ("palm"), which rests on the ground with
-// small claws. Four long finger bones rise from the palm, up and back past the hips, each ending in a hooked
-// claw. Membrane fills only the space between the fingers (scalloped at the tips) and ends at the last
-// finger. Two layers: bone (scale coloured) and membrane.
+// ---- Wings (Wings layer, drawn above the body and legs but under the head). A SkyWing wing is built like
+// an arm with a hand: the upper arm runs from the shoulder back along the top of the back to the elbow, the
+// forearm comes forward and down to the wrist, and the hand rests on the ground with a thumb claw. Four long
+// fingers grow from the hand's knuckles, nearly parallel, rising up and back: the front ones shorter and
+// steeper, the back ones longer, so the fingertips step up toward the rear. Each finger ends in a hooked
+// claw. Membrane is stretched between neighbouring fingers (scalloped at the tips), plus a small triangle
+// in the crook of the elbow. Two layers: bone (scale coloured) and membrane.
 // Side views: the near wing lies over the flank; the far wing shows behind it, a tone darker.
 // Front view: the wings stand behind the shoulders, so anything the body covers is cut away.
 // Back view: the folded wings lie over the back.
-function wingShape({ sh, palm, tips }, dx = 0, dy = 0) {
+const deg = a => a * Math.PI / 180;
+function wingShape(spec, dx = 0, dy = 0) {
   const mv = ([x, y]) => [x + dx, y + dy];
-  sh = mv(sh); palm = mv(palm); tips = tips.map(mv);
+  const sh = mv(spec.sh), elbow = mv(spec.elbow), palm = mv(spec.palm);
+  // Fingers: explicit tips, or a fan of [angle above the backward horizontal, length] pairs (back = -x).
+  const tips = spec.tips ? spec.tips.map(mv) : spec.fan.map(([a, l]) => [palm[0] - Math.cos(deg(a)) * l, palm[1] - Math.sin(deg(a)) * l]);
+  // Knuckles: spread a little across the hand, so the fingers start side by side instead of from one point.
+  const knuckles = tips.map((t, i) => {
+    const vx = t[0] - palm[0], vy = t[1] - palm[1], l = Math.hypot(vx, vy), ux = vx / l, uy = vy / l;
+    const k = (i - (tips.length - 1) / 2) * 1.1;
+    return [palm[0] + ux * 2.5 - uy * k, palm[1] + uy * 2.5 + ux * k];
+  });
   const bone = M(), mem = M(), claws = [];
-  const poly = [palm, tips[0]];
+  // membrane between neighbouring fingers
   for (let i = 1; i < tips.length; i++) {
     const a = tips[i - 1], b = tips[i];
-    poly.push([lerp(lerp(a[0], b[0], 0.5), palm[0], 0.06), lerp(lerp(a[1], b[1], 0.5), palm[1], 0.06)], b);
+    const notch = [lerp(lerp(a[0], b[0], 0.5), palm[0], 0.06), lerp(lerp(a[1], b[1], 0.5), palm[1], 0.06)];
+    mem.poly([knuckles[i - 1], a, notch, b, knuckles[i]]);
   }
-  mem.poly(poly);
-  bone.capsule(...sh, 2.4, ...palm, 1.8);          // wing arm
-  bone.ellipse(palm[0], palm[1], 2.2, 1.4);         // palm resting on the ground
-  tips.forEach((t, i) => { bone.capsule(...palm, 1.1, ...t, i === 0 ? 0.8 : 0.72); claws.push([t, [t[0] - palm[0], t[1] - palm[1]]]); });
+  mem.poly([sh, elbow, [lerp(elbow[0], palm[0], 0.3), lerp(elbow[1], palm[1], 0.3)]]); // elbow crook
+  bone.capsule(...sh, 2.3, ...elbow, 2);                // upper arm
+  bone.capsule(...elbow, 2, ...palm, 1.6);              // forearm
+  bone.ellipse(palm[0], palm[1], 2.4, 1.5);             // hand on the ground
+  tips.forEach((t, i) => {
+    bone.capsule(...palm, 1.2, ...knuckles[i], 1.1);    // hand bone
+    bone.capsule(...knuckles[i], 0.9, ...t, 0.65);      // finger
+    claws.push([t, [t[0] - knuckles[i][0], t[1] - knuckles[i][1]]]);
+  });
   mem.minus(bone);
   return { bone, mem, claws, palm };
 }
-// The palm sits on the ground (row ~47) behind the near foreleg in side view, outside the legs front and back.
-const WING_E = { sh: [35, 28], palm: [33, 46.6], tips: [[28, 0.5], [19, 2], [11, 6], [4, 14]] };
-const WING_S = { sh: [25.5, 27], palm: [16.5, 46.4], tips: [[21, 0.5], [15, 2], [10, 6], [6, 13]] };
-const WING_N = { sh: [28, 25], palm: [16.5, 47.6], tips: [[21, 0.5], [15, 2], [10, 6], [6, 13]] };
+// Side view: the hand rests just behind the near front paw; the elbow sits on top of the back.
+const WING_E = { sh: [36, 29], elbow: [24, 26], palm: [34, 46.8], fan: [[74, 32], [64, 42], [55, 50], [47, 49]] };
+// Front/back views (left wing; the right one is mirrored): the hand rests outside the legs.
+const WING_S = { sh: [25.5, 27], elbow: [21, 23.5], palm: [16.5, 46.4], tips: [[21, 0.5], [15, 2], [10, 6], [6, 13]] };
+const WING_N = { sh: [28, 25], elbow: [23, 24], palm: [16.5, 47.6], tips: [[21, 0.5], [15, 2], [10, 6], [6, 13]] };
 
 // Everything that stands in front of the wings in the front view.
 function frontOccluder() {
@@ -313,11 +331,14 @@ function wingPics(w, far, hide) {
   for (const [t, d] of w.claws) claw(bone, Math.round(t[0] - 0.5), Math.round(t[1] - 0.5), d[0], d[1], d[0] < 0 ? 1 : -1);
   for (const p of w.palms) { const x = Math.round(p[0] - 0.5), y = Math.round(p[1] - 0.5), s = p[2]; bone.dot([[x + 2 * s, y + 1], [x + 3 * s, y + 1], [x - 2 * s, y + 1]], T.claw); }
   if (hide) clearMask(bone, hide);
-  const mem = shade(w.mem, { flat: true });
-  const boneMask = maskOfPic(bone);
-  w.mem.interior().each((x, y) => {
-    const nearBone = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1]].some(([a, b]) => boneMask.has(x + a, y + b));
-    mem.set(x, y, nearBone ? T.base : T.light);
+  // Membrane: outline only where it meets open air; next to a bone it stays membrane coloured, so even
+  // one-pixel strips between fingers read as skin.
+  const mem = new Pic(), boneMask = maskOfPic(bone);
+  const open = (x, y) => x >= 0 && y >= 0 && x < N && y < N && !w.mem.has(x, y) && !boneMask.has(x, y);
+  w.mem.each((x, y) => {
+    if (boneMask.has(x, y)) return;
+    const nearBone = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => boneMask.has(x + a, y + b));
+    mem.set(x, y, open(x, y + 1) || open(x + 1, y) ? T.outlineHi : open(x, y - 1) || open(x - 1, y) ? T.base : nearBone ? T.base : T.light);
   });
   if (far) for (let i = 0; i < N * N; i++) if (mem.v[i] > T.outlineHi) mem.v[i] -= 18;
   return { bone, membrane: mem };
@@ -438,7 +459,7 @@ const DRAW = [
   ['hind_near', 'skin'], ['front_near', 'skin'], ['wings_membrane', 'membrane'], ['wings_bone', 'skin'], ['head', 'skin'], ['eyes', 'eyes'], ['horns', 'horns'],
 ];
 // Default colours: keep in sync with Resources/Prototypes/_WoF/Species/skywing.yml.
-const COL = { skin: '#c8402a', membrane: '#f39c12', belly: '#f2c14e', horns: '#d4a056', under: '#f2c14e', spines: '#7a1c10', eyes: '#ffd23a' };
+const COL = { skin: '#c8402a', membrane: '#f6c977', belly: '#f2c14e', horns: '#d4a056', under: '#f2c14e', spines: '#7a1c10', eyes: '#ffd23a' };
 
 const join = (...pics) => pics.reduce((a, p) => a.over(p), new Pic());
 

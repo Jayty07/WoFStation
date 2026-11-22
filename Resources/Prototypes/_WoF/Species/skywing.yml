@@ -163,7 +163,7 @@
     default:
       type:
         !type:SimpleColoring
-        color: "#f39c12"
+        color: "#f6c977"
     layers:
       wings_bone:
         type:
