@@ -278,10 +278,10 @@ function limb(kind, side, dir) {
 // ---- Wings (Wings layer, drawn above the body and legs but under the head). A SkyWing wing is built like
 // an arm with a hand: the upper arm runs from the shoulder back along the top of the back to the elbow, the
 // forearm comes forward and down to the wrist, and the hand rests on the ground with a thumb claw. Four long
-// fingers grow from the hand's knuckles, nearly parallel, rising up and back: the front ones shorter and
-// steeper, the back ones longer, so the fingertips step up toward the rear. Each finger ends in a hooked
-// claw. Membrane is stretched between neighbouring fingers (scalloped at the tips), plus a small triangle
-// in the crook of the elbow. Two layers: bone (scale coloured) and membrane.
+// fingers grow from the hand's knuckles, rising up and back: the front ones shorter and steeper, the back ones
+// longer, so the fingertips step up toward the rear. Each finger has three joints and curls inward a little at
+// each one, ending in a hooked claw. Membrane is stretched between neighbouring fingers from the palm to the
+// scalloped tips, plus a small triangle in the crook of the elbow. Two layers: bone (scale coloured) and membrane.
 // Side views: the near wing lies over the flank; the far wing shows behind it, a tone darker.
 // Front view: the wings stand behind the shoulders, so anything the body covers is cut away.
 // Back view: the folded wings lie over the back.
@@ -294,37 +294,57 @@ function wingShape(spec, dx = 0, dy = 0) {
   // Knuckles: spread a little across the hand, so the fingers start side by side instead of from one point.
   const knuckles = tips.map((t, i) => {
     const vx = t[0] - palm[0], vy = t[1] - palm[1], l = Math.hypot(vx, vy), ux = vx / l, uy = vy / l;
-    const k = (i - (tips.length - 1) / 2) * 1.8;
-    return [palm[0] + ux * 2.5 - uy * k, palm[1] + uy * 2.5 + ux * k];
+    const k = (i - (tips.length - 1) / 2) * 3;
+    return [palm[0] + ux * 3 - uy * k, palm[1] + uy * 3 + ux * k];
+  });
+  // Each finger has three joints. At every joint it bends a little further toward the front of the folded
+  // wing, so the fingers curl inward instead of running straight. The path starts turned slightly outward so
+  // the tip still lands near its planned spot.
+  const BEND = deg(spec.bend ?? 9), SPREAD = deg(spec.spread ?? 9), joints = [];
+  const paths = tips.map((t, i) => {
+    const k0 = knuckles[i], L = Math.hypot(t[0] - k0[0], t[1] - k0[1]) / 4;
+    let ux = (t[0] - k0[0]) / (4 * L), uy = (t[1] - k0[1]) / (4 * L);
+    const turn = a => { const px = -uy, py = ux, c = Math.cos(a), sn = Math.sin(a); [ux, uy] = [ux * c + px * sn, uy * c + py * sn]; };
+    // fan the fingers apart as they leave the hand (front finger forward, back finger back) so membrane shows
+    // right down to the palm, then curl every finger inward at its joints
+    turn(-1.5 * BEND + ((tips.length - 1) / 2 - i) * SPREAD);
+    const pts = [k0];
+    for (let j = 0; j < 4; j++) {
+      if (j > 0) { turn(BEND); joints.push([pts[j], [ux, uy]]); }
+      const p = pts[j]; pts.push([p[0] + ux * L, p[1] + uy * L]);
+    }
+    return pts;
   });
   const bone = M(), mem = M(), claws = [], segs = [[sh, elbow, 2], [elbow, palm, 2]];
-  // membrane between neighbouring fingers
-  for (let i = 1; i < tips.length; i++) {
-    const a = tips[i - 1], b = tips[i];
+  // membrane between neighbouring fingers, reaching all the way down to the palm
+  for (let i = 1; i < paths.length; i++) {
+    const A = paths[i - 1], B = paths[i], a = A[4], b = B[4];
     const notch = [lerp(lerp(a[0], b[0], 0.5), palm[0], 0.06), lerp(lerp(a[1], b[1], 0.5), palm[1], 0.06)];
-    mem.poly([knuckles[i - 1], a, notch, b, knuckles[i]]);
+    mem.poly([palm, ...A, notch, ...B.slice().reverse()]);
   }
   mem.poly([sh, elbow, [lerp(elbow[0], palm[0], 0.3), lerp(elbow[1], palm[1], 0.3)]]); // elbow crook
   bone.capsule(...sh, 2.3, ...elbow, 2);                // upper arm
   bone.capsule(...elbow, 2, ...palm, 1.6);              // forearm
   bone.ellipse(palm[0], palm[1], 2.4, 1.5);             // hand on the ground
-  tips.forEach((t, i) => {
-    bone.capsule(...palm, 1.2, ...knuckles[i], 1.1);    // hand bone
-    bone.capsule(...knuckles[i], 0.9, ...t, 0.65);      // finger
-    claws.push([t, [t[0] - knuckles[i][0], t[1] - knuckles[i][1]]]);
-    segs.push([knuckles[i], t, 1]);
+  paths.forEach((pts, i) => {
+    bone.capsule(...palm, 1.2, ...pts[0], 1.1);          // hand bone
+    const rad = [0.95, 0.85, 0.78, 0.7, 0.62];
+    for (let j = 0; j < 4; j++) bone.capsule(...pts[j], rad[j], ...pts[j + 1], rad[j + 1]); // finger segments
+    for (let j = 1; j < 4; j++) bone.ellipse(pts[j][0], pts[j][1], rad[j] + 0.35, rad[j] + 0.35); // joint knuckles
+    const t = pts[4], prev = pts[3];
+    claws.push([t, [t[0] - prev[0], t[1] - prev[1]]]);
   });
   mem.minus(bone);
   const arm = M().capsule(...sh, 2.3, ...elbow, 2).capsule(...elbow, 2, ...palm, 1.6).ellipse(palm[0], palm[1], 2.4, 1.5);
-  return { bone, mem, claws, palm, segs, arm };
+  return { bone, mem, claws, palm, segs, arm, joints };
 }
 // Side view: the hand rests just behind the near front paw; the elbow sits on top of the back.
-const WING_E = { sh: [36, 29], elbow: [24, 26], palm: [34, 46.8], fan: [[74, 32], [64, 42], [55, 50], [47, 49]] };
+const WING_E = { sh: [36, 29], elbow: [24, 26], palm: [34, 46.8], fan: [[76, 32], [66, 41], [57, 46], [49, 42]] };
 // Front/back views (left wing; the right one is mirrored): the hand rests outside the legs.
-const WING_S = { sh: [25.5, 27], elbow: [21, 23.5], palm: [16.5, 46.4], tips: [[21, 0.5], [15, 2], [10, 6], [6, 13]] };
+const WING_S = { bend: 6, spread: 5, sh: [25.5, 27], elbow: [21, 23.5], palm: [16.5, 46.4], tips: [[18.5, 1], [14, 2.5], [9.5, 6], [6, 12.5]] };
 // Back view: the upper arm lies along the back to an elbow on top of the flank; the forearm and hand reach
 // forward to the ground beyond the body, so below the elbow the body hides them and the fingers rise from the sides.
-const WING_N = { sh: [28, 24], elbow: [24.5, 33], palm: [25, 45], tips: [[22, 0.5], [16, 2], [11, 6], [7, 13]] };
+const WING_N = { bend: 6, spread: 5, sh: [28, 24], elbow: [24.5, 33], palm: [25, 45], tips: [[19.5, 1], [15, 2.5], [10.5, 6], [7, 12.5]] };
 
 // Everything that stands in front of the wings in the front view.
 function frontOccluder() {
@@ -347,6 +367,11 @@ function wingPics(w, far, hide) {
       const x = Math.round(a[0] + ux * k - uy * o - 0.5), y = Math.round(a[1] + uy * k + ux * o - 0.5);
       if (bone.get(x, y) > T.outlineHi) bone.set(x, y, T.outlineHi);
     }
+  }
+  // Finger joints: a dark seam across the bone at each joint.
+  for (const [p, d] of w.joints) for (let o = -1; o <= 1; o++) {
+    const x = Math.round(p[0] - d[1] * o - 0.5), y = Math.round(p[1] + d[0] * o - 0.5);
+    if (bone.get(x, y) > T.outlineHi) bone.set(x, y, T.outlineHi);
   }
   // Outline the arm and hand where they lie over the body or open air, so the wing reads as sitting on top.
   const bm = maskOfPic(bone);
@@ -377,7 +402,7 @@ function wingPics(w, far, hide) {
 }
 // s = which way the palm claws point (+1 = toward +x)
 const withPalms = (w, s) => ({ ...w, palms: [[w.palm[0], w.palm[1], s]] });
-function mirrorShape(w) { return { bone: w.bone.mirrored(), mem: w.mem.mirrored(), claws: w.claws.map(([t, d]) => [[N - t[0], t[1]], [-d[0], d[1]]]), palm: [N - w.palm[0], w.palm[1]], arm: w.arm.mirrored(), segs: w.segs.map(([a, b, h]) => [[N - a[0], a[1]], [N - b[0], b[1]], h]) }; }
+function mirrorShape(w) { return { bone: w.bone.mirrored(), mem: w.mem.mirrored(), claws: w.claws.map(([t, d]) => [[N - t[0], t[1]], [-d[0], d[1]]]), palm: [N - w.palm[0], w.palm[1]], arm: w.arm.mirrored(), joints: w.joints.map(([p, d]) => [[N - p[0], p[1]], [-d[0], d[1]]]), segs: w.segs.map(([a, b, h]) => [[N - a[0], a[1]], [N - b[0], b[1]], h]) }; }
 
 function wings(dir) {
   if (dir === 'W') { const e = wings('E'); return { bone: e.bone.mirrored(), membrane: e.membrane.mirrored() }; }
@@ -390,7 +415,7 @@ function wings(dir) {
   const left = wingShape(dir === 'S' ? WING_S : WING_N), right = mirrorShape(left);
   const both = {
     bone: left.bone.clone().union(right.bone), mem: left.mem.clone().union(right.mem),
-    claws: left.claws.concat(right.claws), arm: left.arm.clone().union(right.arm), segs: left.segs.concat(right.segs), palms: [[left.palm[0], left.palm[1], -1], [right.palm[0], right.palm[1], 1]],
+    claws: left.claws.concat(right.claws), arm: left.arm.clone().union(right.arm), joints: left.joints.concat(right.joints), segs: left.segs.concat(right.segs), palms: [[left.palm[0], left.palm[1], -1], [right.palm[0], right.palm[1], 1]],
   };
   both.mem.minus(both.bone);
   if (dir === 'S') return wingPics(both, false, frontOccluder());
