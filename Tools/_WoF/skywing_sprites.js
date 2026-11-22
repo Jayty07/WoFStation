@@ -225,24 +225,27 @@ function torso(dir) {
     ridge(m, p, 0, -1, 4, (x, y) => x < 37);            // along the back
     ridge(m, p, -1, 0, 4, (x, y) => x > 38 && y < 27);  // up the back of the neck
   }
-  if (dir === 'N') for (let y = 15; y <= 43; y++) p.set(31, y, [T.light, T.mid, T.outlineHi, T.outlineLo][y % 4]);
+  if (dir === 'N') {
+    p.over(shade(tailMask('N'), { scales: true }));  // tail comes toward the camera, over the rump
+    for (let y = 15; y <= 48; y++) p.set(31, y, [T.light, T.mid, T.outlineHi, T.outlineLo][y % 4]); // dorsal ridge
+  }
   return p;
 }
 
 // ---- Legs. E view: the dragon's LEFT side faces the camera (near); right side is far (darker).
 const LIMB = {
-  armS: () => M().chain([[26.5, 31, 3.2], [26, 40, 2.2], [26, 45.5, 1.9]]),
-  armE_near: () => M().chain([[37, 33, 4], [38, 40, 2.6], [39, 45, 2]]),
-  armE_far: () => M().chain([[33, 35, 3.2], [33.5, 41, 2.2], [34, 45.5, 1.8]]),
+  armS: () => M().chain([[26.5, 31, 3.2], [24.6, 38.5, 2.5], [26, 45.5, 1.9]]).ellipse(24.2, 38.6, 2.1, 2), // elbow juts outward
+  armE_near: () => M().chain([[37, 33, 4], [35.4, 39.5, 2.8], [38.8, 45, 2]]).ellipse(35, 39.8, 2.2, 2.1), // elbow points back
+  armE_far: () => M().chain([[33, 35, 3.2], [31.6, 40.5, 2.3], [34, 45.5, 1.8]]).ellipse(31.3, 40.8, 1.8, 1.7),
   handS: () => M().ellipse(26, 47.2, 2.6, 1.4),
   handE_near: () => M().ellipse(40.5, 47.4, 2.7, 1.4),
   handE_far: () => M().ellipse(35.5, 47.4, 2.3, 1.2),
   legS: () => M().ellipse(22.5, 36, 2.8, 4).chain([[22.8, 39, 2], [23, 43, 1.6]]), // behind the foreleg; only the outer edge shows
-  legN: () => M().ellipse(38.5, 37, 3.6, 5).chain([[38.5, 40, 2.6], [39, 44, 2], [39, 46, 1.8]]),
+  legN: () => M().ellipse(40.5, 36.5, 4, 5).chain([[40.5, 40, 2.8], [40.6, 43, 2], [40.3, 46.4, 1.7]]).ellipse(40.9, 43.2, 1.8, 1.7), // haunch, hock
   legE_near: () => M().ellipse(18, 34, 5, 6).chain([[19, 38, 3.2], [15.5, 42.5, 2.2], [17, 46, 1.8]]),
   legE_far: () => M().chain([[14, 37, 3], [11, 42.5, 2], [12.5, 46, 1.6]]),
   footS: () => M().ellipse(23.4, 45.6, 2.1, 1),
-  footN: () => M().ellipse(39, 47.5, 2.6, 1.4),
+  footN: () => M().ellipse(40.3, 47.7, 2.4, 1.1),
   footE_near: () => M().ellipse(19, 47.6, 2.8, 1.3),
   footE_far: () => M().ellipse(14, 47.6, 2.4, 1.1),
 };
@@ -314,7 +317,9 @@ function wingShape(spec, dx = 0, dy = 0) {
 const WING_E = { sh: [36, 29], elbow: [24, 26], palm: [34, 46.8], fan: [[74, 32], [64, 42], [55, 50], [47, 49]] };
 // Front/back views (left wing; the right one is mirrored): the hand rests outside the legs.
 const WING_S = { sh: [25.5, 27], elbow: [21, 23.5], palm: [16.5, 46.4], tips: [[21, 0.5], [15, 2], [10, 6], [6, 13]] };
-const WING_N = { sh: [28, 25], elbow: [23, 24], palm: [16.5, 47.6], tips: [[21, 0.5], [15, 2], [10, 6], [6, 13]] };
+// Back view: the upper arm lies along the back to an elbow on top of the flank; the forearm and hand reach
+// forward to the ground beyond the body, so below the elbow the body hides them and the fingers rise from the sides.
+const WING_N = { sh: [28, 24], elbow: [24.5, 33], palm: [25, 45], tips: [[22, 0.5], [16, 2], [11, 6], [7, 13]] };
 
 // Everything that stands in front of the wings in the front view.
 function frontOccluder() {
@@ -362,7 +367,9 @@ function wings(dir) {
   };
   both.mem.minus(both.bone);
   if (dir === 'S') return wingPics(both, false, frontOccluder());
-  return wingPics(both, true, headMask('N'));
+  const beyond = torsoMask('N'); for (const k of ['legN', 'footN']) { const l = LIMB[k](); beyond.union(l).union(l.mirrored()); }
+  const hidden = M(); beyond.each((x, y) => { if (y > 34) hidden.set(x, y); });
+  return wingPics(both, true, hidden.union(headMask('N')));
 }
 
 // ---- Horns (HeadTop): long, curved, sweeping back and then up.
@@ -378,7 +385,8 @@ function horns(dir) {
   return shade(m, { far: dir === 'N' }).dot([[23, 0], [40, 0]], T.claw);
 }
 
-// ---- Tail (Tail layer, behind the body): long and thin, trailing along the ground and curling at the tip. Scales + underside layers.
+// ---- Tail (Tail layer, behind the body): long, trailing along the ground and curling at the tip. Scales + underside
+// layers. The back-view tail lives in the body sprite instead, because from behind it is in front of the body.
 const TAIL_THICKNESS = 1.5; // multiplies every tail radius
 function tailMask(dir) {
   if (dir === 'W') return tailMask('E').mirrored();
@@ -386,9 +394,10 @@ function tailMask(dir) {
   m.chain = pts => chain(pts.map(([x, y, rad]) => [x, y, Math.max(0.9, rad * TAIL_THICKNESS)]));
   if (dir === 'E') return m.chain([[13, 31, 3.4], [7, 34, 2.9], [3, 39, 2.4], [2.5, 44, 2], [5, 48, 1.8], [11, 50, 1.6], [19, 50.5, 1.4], [27, 50, 1.2], [32, 48, 1], [32.5, 45, 0.8], [30, 43.8, 0.7], [28.3, 45.3, 0.5]]);
   if (dir === 'S') return m.chain([[26, 45, 2], [21, 48.5, 1.9], [13, 50.5, 1.7], [6, 50, 1.5], [2, 46.5, 1.3], [2, 42, 1.1], [4.5, 39, 0.9], [7.5, 39.8, 0.7], [7.5, 42.3, 0.5]]);
-  return m.chain([[32, 40, 2.6], [32, 47, 2.3], [33.5, 53, 2], [37.5, 57.5, 1.7], [44, 59.5, 1.4], [50, 58, 1.1], [52.5, 54.5, 0.9], [50.5, 51.5, 0.7], [48, 52.5, 0.5]]);
+  return m.chain([[32, 36, 3.2], [32, 43, 2.8], [32.5, 49, 2.27], [35, 54, 1.8], [40, 57.5, 1.4], [46, 58.5, 1.07], [51, 56.5, 0.8], [52.5, 53, 0.6], [50.5, 51, 0.47]]);
 }
 function tail(dir) {
+  if (dir === 'N') return { scales: new Pic(), under: new Pic() }; // drawn in the body sprite, see torso()
   const m = tailMask(dir), pic = shade(m, { scales: true }), under = new Pic();
   if (dir !== 'N') {
     m.interior().each((x, y) => { if (stepsOut(m, x, y, 0.3, 1, 2) <= 2) { under.set(x, y, pic.get(x, y) === T.shade ? T.shade : T.base); pic.set(x, y, -1); } });

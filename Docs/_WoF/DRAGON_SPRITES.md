@@ -72,7 +72,7 @@ tail → far hind leg → far front leg → body → near hind leg → near fron
 
 The order is the same for all four directions, so each frame is drawn to suit it:
 
-- **Tail** is always behind; it spreads out past the body's outline.
+- **Tail** is always behind; it spreads out past the body's outline. The one exception is the back view, where the tail comes toward the camera over the rump: that frame of the tail is drawn in the `body` sprite instead, and the `tail` and `tail_underside` north frames are empty.
 - **Wings** draw over the body. In the side views the near wing lies over the flank and the far wing shows behind it (with the near wing and body cut out of it). In the front view the wings stand behind the shoulders, so the art leaves out every pixel the body, head or legs would cover. In the back view the folded wings lie over the back.
 
 ## Worn items
