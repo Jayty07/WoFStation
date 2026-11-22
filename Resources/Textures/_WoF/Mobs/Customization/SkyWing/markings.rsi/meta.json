@@ -28,15 +28,7 @@
             "directions": 4
         },
         {
-            "name": "cheek_spikes",
-            "directions": 4
-        },
-        {
             "name": "underbelly",
-            "directions": 4
-        },
-        {
-            "name": "back_spines",
             "directions": 4
         }
     ]

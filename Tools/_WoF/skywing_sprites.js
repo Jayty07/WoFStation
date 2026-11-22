@@ -114,15 +114,16 @@ function stepsOut(m, x, y, dx, dy, max) {
   return 99;
 }
 
-// Shade a mask. opts: far (one tone darker), scales (texture), flat (no light/shadow bands).
+// Shade a mask. opts: far (one tone darker), scales (texture), flat (no light/shadow bands), thin (lighter edges).
 function shade(m, opts = {}) {
   const p = new Pic(), off = opts.far ? -18 : 0;
   const inside = (a, b) => a < 0 || b < 0 || a >= N || b >= N || m.has(a, b);
   m.each((x, y) => {
     let v;
     const outDown = !inside(x, y + 1) || !inside(x + 1, y), outUp = !inside(x, y - 1) || !inside(x - 1, y);
-    if (outDown) v = T.outlineLo;
-    else if (outUp) v = T.outlineHi;
+    // thin: for 1-3px structures like wing fingers, whose pixels are nearly all edge
+    if (outDown) v = opts.thin ? T.outlineHi : T.outlineLo;
+    else if (outUp) v = opts.thin ? T.base : T.outlineHi;
     else if (opts.flat) v = T.base;
     else {
       const toLight = stepsOut(m, x, y, -0.6, -0.8, 3), toShadow = stepsOut(m, x, y, 0.6, 0.8, 4);
@@ -143,206 +144,226 @@ function spikes(list) { const m = M(); for (const t of list) m.poly(t); return m
 const flipPts = pts => pts.map(([x, y, ...r]) => [N - x, y, ...r]);
 
 // ================================================================= SKELETON + PARTS
-// Coordinates are in pixel space (pixel centres at +0.5). W frames mirror E with left/right swapped.
+// SkyWing anatomy, from the tribe's canon description and general Western-dragon build:
+//   - largest wings of any tribe: when folded the long finger bones rise far above the back, each finger
+//     ending in a hooked claw, with scalloped membrane between them
+//   - long S-curved neck holding the head high; thin, long snout with a nose spike; an extra horn on the jaw
+//   - long curved horns that sweep back and then up
+//   - slender body with a pale throat and belly, a ridge of small spines down the back
+//   - long legs (digitigrade hind legs) and a long thin tail that curls at the end
+// Coordinates are pixel space (centres at +0.5). Ground is row 48. W frames mirror E.
 
-// ---- Head
+// Small helpers ---------------------------------------------------------------
+const lerp = (a, b, t) => a + (b - a) * t;
+// A hooked claw from (x,y) continuing along direction (dx,dy), then curling to one side.
+function claw(p, x, y, dx, dy, curl = 1) {
+  const l = Math.hypot(dx, dy) || 1, ux = dx / l, uy = dy / l;
+  const pts = [[x + ux, y + uy], [x + ux * 2, y + uy * 2], [x + ux * 2.5 - uy * curl, y + uy * 2.5 + ux * curl]];
+  return p.dot(pts.map(([a, b]) => [Math.round(a), Math.round(b)]), T.claw);
+}
+// Spikes along the outside of a mask: every `step` contour pixels whose outside neighbour is in direction
+// (dx,dy), grow a 2-pixel spike that way. Optional region filter.
+function ridge(m, p, dx, dy, step, filter = () => true) {
+  let n = 0;
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    if (!m.has(x, y) || m.has(x + dx, y + dy) || !filter(x, y)) continue;
+    if (n++ % step) continue;
+    p.set(x + dx, y + dy, T.outlineHi); p.set(x + 2 * dx, y + 2 * dy, T.outlineLo);
+  }
+  return p;
+}
+
+// ---- Head (Head layer): thin long snout, nose spike, jaw horn, brow ridge.
+function headMask(dir) {
+  const m = M();
+  if (dir === 'S') return m.ellipse(32, 11, 4, 3.6).ellipse(32, 15, 2.7, 2.6).ellipse(32, 13, 3.4, 2.6);
+  if (dir === 'N') return m.ellipse(32, 11, 4, 3.6).ellipse(32, 13.5, 3, 2.2);
+  return m.ellipse(47.5, 10, 3.8, 3.3).chain([[49.5, 10.5, 2.8], [58, 12, 1.5]]).chain([[47.5, 13, 2.3], [56, 13.6, 1.1]]);
+}
 function head(dir) {
   if (dir === 'W') return head('E').mirrored();
-  const m = M();
+  const m = headMask(dir);
   if (dir === 'S') {
-    m.ellipse(32, 12, 6.5, 5.5).ellipse(32, 18, 4.5, 3.8).ellipse(32, 15, 5.5, 4);
-    const p = shade(m, { scales: false });
-    return p.dot([[30, 20], [33, 20]], T.deep).dot([[28, 9], [29, 9], [34, 9], [35, 9]], T.outlineHi); // nostrils, brow
+    const jaw = spikes([[[29, 13], [25, 17], [29.5, 15]], [[35, 13], [39, 17], [34.5, 15]]]);
+    const p = shade(jaw, { far: true }).over(shade(m));
+    return p.dot([[31, 16], [33, 16]], T.deep).dot([[30, 9], [34, 9]], T.outlineHi).dot([[32, 13]], T.light); // nostrils, brow, nose spike
   }
   if (dir === 'N') {
-    m.ellipse(32, 12, 6.5, 5.5).ellipse(32, 15.5, 5, 3.5);
-    return shade(m);
+    const jaw = spikes([[[29, 12.5], [25, 16], [29.5, 14.5]], [[35, 12.5], [39, 16], [34.5, 14.5]]]);
+    return shade(jaw).over(shade(m));
   }
-  m.ellipse(46, 13, 6, 5).chain([[48, 13.5, 4], [57, 16, 2.6]]).chain([[46, 17, 3], [55, 18.5, 2]]);
-  const p = shade(m);
-  p.dot([[57, 15]], T.deep);                                   // nostril
-  p.dot([[49, 18], [50, 18], [51, 18], [52, 19], [53, 19], [54, 19]], T.outlineLo); // mouth line
-  p.dot([[47, 10], [48, 10], [49, 10], [50, 10]], T.outlineHi); // brow ridge
+  const jaw = spikes([[[46, 12.5], [41.5, 15.5], [46.5, 14.5]]]);   // jaw horn, swept back
+  const nose = spikes([[[55, 10.6], [56.5, 8.4], [57.5, 10.8]]]);  // nose spike
+  const p = shade(jaw).over(shade(m.clone().union(nose)));
+  p.dot([[58, 11]], T.deep);                                                      // nostril
+  p.dot([[49, 13], [50, 13], [51, 13], [52, 13], [53, 14], [54, 14]], T.outlineLo); // mouth line
+  p.dot([[47, 8], [48, 8], [49, 8], [50, 8]], T.outlineHi);                      // brow ridge
   return p;
 }
 
 function eyes(dir) {
   const p = new Pic();
-  if (dir === 'S') return p.dot([[28, 12], [29, 12], [34, 12], [35, 12]], 255);
-  if (dir === 'E') return p.dot([[49, 12], [50, 12]], 255);
+  if (dir === 'S') return p.dot([[30, 10], [34, 10]], 255);
+  if (dir === 'E') return p.dot([[50, 9], [51, 9]], 255);
   if (dir === 'W') return eyes('E').mirrored();
   return p;
 }
 
-// ---- Body and neck (Chest)
+// ---- Body and neck (Chest): slender barrel, deep chest, S-curved neck, dorsal ridge.
 function torsoMask(dir) {
   if (dir === 'W') return torsoMask('E').mirrored();
   const m = M();
-  if (dir === 'S') return m.chain([[32, 18, 5], [32, 26, 6]]).ellipse(32, 31, 10, 8).ellipse(32, 36, 8, 6);
-  if (dir === 'N') return m.chain([[32, 16, 4.5], [32, 26, 6]]).ellipse(32, 33, 11, 9).ellipse(32, 37, 12, 7);
-  return m.ellipse(27, 35, 15, 8.5).ellipse(38, 35, 7, 8.5).ellipse(16, 35, 6, 8).chain([[39, 31, 6.5], [43, 24, 5], [45, 18, 4]]);
+  if (dir === 'S') return m.chain([[32, 15, 2.8], [32, 22, 3.6], [32, 26, 4.6]]).ellipse(32, 31, 7.5, 6.5).ellipse(32, 35, 6.5, 4.5);
+  if (dir === 'N') return m.chain([[32, 13, 2.8], [32, 22, 3.6], [32, 27, 5]]).ellipse(32, 33, 8, 7).ellipse(32, 37, 8.5, 5.5);
+  return m.ellipse(27, 33, 13, 5.5).ellipse(36, 33, 6, 6.5).ellipse(17, 32.5, 5.5, 5.5)
+    .chain([[38, 29, 5], [42.5, 23, 3.6], [43, 17, 3], [46, 12, 2.6]]);
 }
-const torso = dir => shade(torsoMask(dir), { scales: true });
+function torso(dir) {
+  if (dir === 'W') return torso('E').mirrored();
+  const m = torsoMask(dir), p = shade(m, { scales: true });
+  if (dir === 'E') {
+    ridge(m, p, 0, -1, 4, (x, y) => x < 37);            // along the back
+    ridge(m, p, -1, 0, 4, (x, y) => x > 38 && y < 27);  // up the back of the neck
+  }
+  if (dir === 'N') for (let y = 15; y <= 43; y++) p.set(31, y, [T.light, T.mid, T.outlineHi, T.outlineLo][y % 4]);
+  return p;
+}
 
-// ---- Limbs. Each returns the mask for one side; `near` limbs are lit normally, far ones a tone darker.
-// E view: the dragon's LEFT side faces the camera, so L limbs are near and R limbs are far.
+// ---- Legs. E view: the dragon's LEFT side faces the camera (near); right side is far (darker).
 const LIMB = {
-  // forelegs (arms)
-  armS: () => M().chain([[24.5, 32, 4.5], [24, 41, 3.2], [24, 45.5, 2.8]]),
-  armE_near: () => M().chain([[39, 37, 5], [41, 43, 3.2], [42, 46, 2.6]]),
-  armE_far: () => M().chain([[33, 39, 3.8], [34, 44, 2.8], [34, 46, 2.4]]),
-  // front talons (hands)
-  handS: () => M().ellipse(24, 47, 3.8, 2),
-  handE_near: () => M().ellipse(44, 47.5, 3.6, 1.9),
-  handE_far: () => M().ellipse(36, 47.5, 3, 1.6),
-  // hind legs
-  legS: () => M().ellipse(15, 36, 4, 6).chain([[15, 40, 3.2], [15.5, 44, 2.4]]),
-  legN: () => M().ellipse(41, 38, 5, 6.5).chain([[41, 42, 3.6], [41.5, 46, 2.8]]),
-  legE_near: () => M().ellipse(18, 36, 6.5, 7.5).chain([[17, 41, 4], [15, 44, 2.8], [17, 46.5, 2.4]]),
-  legE_far: () => M().chain([[12, 40, 3.6], [9, 44, 2.6], [10, 46.5, 2.2]]),
-  // hind feet
-  footS: () => M().ellipse(15.5, 45.5, 3, 1.6),
-  footN: () => M().ellipse(41.5, 48, 3.6, 2),
-  footE_near: () => M().ellipse(19.5, 47.5, 3.5, 1.8),
-  footE_far: () => M().ellipse(12, 47.5, 3, 1.6),
+  armS: () => M().chain([[26.5, 31, 3.2], [26, 40, 2.2], [26, 45.5, 1.9]]),
+  armE_near: () => M().chain([[37, 33, 4], [38, 40, 2.6], [39, 45, 2]]),
+  armE_far: () => M().chain([[33, 35, 3.2], [33.5, 41, 2.2], [34, 45.5, 1.8]]),
+  handS: () => M().ellipse(26, 47.2, 2.6, 1.4),
+  handE_near: () => M().ellipse(40.5, 47.4, 2.7, 1.4),
+  handE_far: () => M().ellipse(35.5, 47.4, 2.3, 1.2),
+  legS: () => M().ellipse(21, 35, 3.4, 4.5).chain([[21, 38, 2.4], [20.5, 42, 1.8], [21, 44.5, 1.5]]),
+  legN: () => M().ellipse(38.5, 37, 3.6, 5).chain([[38.5, 40, 2.6], [39, 44, 2], [39, 46, 1.8]]),
+  legE_near: () => M().ellipse(18, 34, 5, 6).chain([[19, 38, 3.2], [15.5, 42.5, 2.2], [17, 46, 1.8]]),
+  legE_far: () => M().chain([[14, 37, 3], [11, 42.5, 2], [12.5, 46, 1.6]]),
+  footS: () => M().ellipse(21, 45.8, 2.2, 1.1),
+  footN: () => M().ellipse(39, 47.5, 2.6, 1.4),
+  footE_near: () => M().ellipse(19, 47.6, 2.8, 1.3),
+  footE_far: () => M().ellipse(14, 47.6, 2.4, 1.1),
 };
-
-// Claws: dark pixels along the front/bottom of a paw.
 const CLAWS = {
-  handS: [[21, 48], [23, 49], [25, 49], [27, 48]],
-  handE_near: [[47, 48], [48, 48], [46, 49]],
-  handE_far: [[38, 48], [39, 48]],
-  footS: [[13, 47], [15, 47], [17, 47]],
-  footE_near: [[22, 48], [23, 48], [21, 49]],
-  footE_far: [[14, 48], [15, 48]],
+  handS: [[24, 48], [26, 48], [28, 48]],
+  handE_near: [[43, 48], [44, 48], [42, 48]],
+  handE_far: [[37, 48], [38, 48]],
+  footS: [[19, 46], [21, 47], [23, 46]],
+  footE_near: [[21, 48], [22, 48], [20, 48]],
+  footE_far: [[16, 48], [17, 48]],
 };
-
 function limbPic(key, far) {
   const p = shade(LIMB[key](), { far, scales: !key.startsWith('hand') && !key.startsWith('foot') });
   if (CLAWS[key]) p.dot(CLAWS[key], T.claw);
   return p;
 }
-
-// side = 'r' | 'l'. S: R limb is on the viewer's left; L mirrors it. N: R is on the viewer's right.
 function limb(kind, side, dir) {
-  const lOf = p => p.mirrored();
-  if (dir === 'S') { const p = limbPic(kind + 'S', false); return side === 'r' ? p : lOf(p); }
+  if (dir === 'S') { const p = limbPic(kind + 'S', false); return side === 'r' ? p : p.mirrored(); }
   if (dir === 'N') {
-    if (kind === 'arm' || kind === 'hand') return new Pic(); // forelegs are hidden behind the body from the back
-    const p = limbPic(kind + 'N', false); return side === 'r' ? p : lOf(p);
+    if (kind === 'arm' || kind === 'hand') return new Pic();
+    const p = limbPic(kind + 'N', false); return side === 'r' ? p : p.mirrored();
   }
   if (dir === 'E') return limbPic(kind + 'E_' + (side === 'l' ? 'near' : 'far'), side === 'r');
-  // W: right side is near; mirror the east frame of the opposite side.
   return limb(kind, side === 'r' ? 'l' : 'r', 'E').mirrored();
 }
 
-// ---- Wings (RArm marking, folded at rest). Two layers: bone (skin-coloured) and membrane.
-// SkyWings have the biggest wings of any tribe, so even folded the wrists stand well above the shoulders.
+// ---- Wings (Wings layer, behind the body). Folded upright: a short arm from the shoulder to the wrist,
+// then five long finger bones fanning up and back, each ending in a hooked claw. The membrane between
+// fingertips is scalloped (pulled in toward the wrist) and its trailing edge runs back down to the hips.
+// Two layers: bone (scale coloured) and membrane.
+function wingSide(sh, wr, tips, trail) {
+  const bone = M(), mem = M(), claws = [];
+  const poly = [sh, wr, tips[0]];
+  for (let i = 1; i < tips.length; i++) {
+    const a = tips[i - 1], b = tips[i];
+    poly.push([lerp(lerp(a[0], b[0], 0.5), wr[0], 0.1), lerp(lerp(a[1], b[1], 0.5), wr[1], 0.1)], b);
+  }
+  mem.poly([...poly, ...trail]);
+  bone.capsule(...sh, 2.2, ...wr, 1.7);
+  tips.forEach((t, i) => { bone.capsule(...wr, i === 0 ? 1.3 : 0.95, ...t, i === 0 ? 0.65 : 0.5); claws.push([t, [t[0] - wr[0], t[1] - wr[1]]]); });
+  return { bone, mem, claws };
+}
+const WING_E = { sh: [35, 28], wr: [30, 21], tips: [[27, 0.5], [21, 1], [15, 3], [10, 7], [6, 13]], trail: [[9, 18], [14, 23], [21, 26], [28, 27]] };
+const WING_S = { sh: [27, 26], wr: [22, 19], tips: [[21, 0.5], [16, 1], [11, 4], [7, 9], [5, 16]], trail: [[9, 21], [13, 26], [19, 28], [25, 28]] };
+const WING_N = { sh: [27, 26], wr: [22, 19], tips: [[21, 0.5], [16, 1], [11, 4], [7, 9], [5, 16]], trail: [[9, 22], [13, 28], [19, 31], [26, 30]] };
+
 function wingParts(dir) {
-  const bone = M(), mem = M();
-  const side = (sh, wr, tip, trail, fingers) => {
-    mem.poly([wr, tip, ...trail, sh]);
-    bone.capsule(...sh, 2.2, ...wr, 1.7).capsule(...wr, 1.7, ...tip, 0.9);
-    for (const f of fingers) bone.capsule(...wr, 1.2, ...f, 0.6);
-  };
-  if (dir === 'E') {
-    side([38, 28], [30, 10], [5, 17],
-      [[6, 24], [10, 30], [15, 30.5], [20, 33], [25, 31], [30, 32], [35, 30]],
-      [[10, 30], [20, 33], [30, 32]]);
-  } else if (dir === 'S' || dir === 'N') {
-    const L = dir === 'S'
-      ? { sh: [23, 24], wr: [15, 4], tip: [7, 20], trail: [[6, 26], [8, 32], [12, 30], [16, 33], [20, 28]], f: [[8, 32], [16, 33]] }
-      : { sh: [27, 24], wr: [17, 6], tip: [9, 22], trail: [[9, 30], [13, 38], [17, 36], [21, 40], [26, 36]], f: [[13, 38], [21, 40]] };
-    side(L.sh, L.wr, L.tip, L.trail, L.f);
-    const rb = bone.mirrored(), rm = mem.mirrored(); bone.union(rb); mem.union(rm);
-  } else {
-    const e = wingParts('E'); return { bone: e.bone.mirrored(), mem: e.mem.mirrored() };
+  if (dir === 'W') { const e = wingParts('E'); return { bone: e.bone.mirrored(), mem: e.mem.mirrored() }; }
+  const spec = dir === 'E' ? WING_E : dir === 'S' ? WING_S : WING_N;
+  const s = wingSide(spec.sh, spec.wr, spec.tips, spec.trail);
+  let bone = s.bone, mem = s.mem, claws = s.claws;
+  if (dir !== 'E') {
+    bone = bone.clone().union(s.bone.mirrored()); mem = mem.clone().union(s.mem.mirrored());
+    claws = claws.concat(s.claws.map(([t, d]) => [[N - t[0], t[1]], [-d[0], d[1]]]));
   }
   mem.minus(bone);
-  return { bone, mem };
+  const bonePic = shade(bone, { thin: true });
+  for (const [t, d] of claws) claw(bonePic, Math.round(t[0] - 0.5), Math.round(t[1] - 0.5), d[0], d[1], d[0] < 0 ? 1 : -1);
+  return { bone: bonePic, mem };
 }
 function wings(dir) {
   const { bone, mem } = wingParts(dir);
-  const memPic = shade(mem, { flat: false });
-  // Membrane reads darker from behind and gets thin vein shading.
-  if (dir === 'N') for (let i = 0; i < N * N; i++) if (memPic.v[i] > T.outlineHi) memPic.v[i] -= 18;
-  return { bone: shade(bone), membrane: memPic };
+  const memPic = shade(mem, { flat: true });
+  const boneMask = M(); for (let i = 0; i < N * N; i++) if (bone.v[i] >= 0) boneMask.a[i] = 1;
+  mem.interior().each((x, y) => {
+    const nearBone = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1]].some(([a, b]) => boneMask.has(x + a, y + b));
+    if (nearBone) memPic.set(x, y, T.base);
+    else if (stepsOut(mem, x, y, 0, 1, 3) <= 1) memPic.set(x, y, 234);
+    else memPic.set(x, y, T.light);
+  });
+  if (dir === 'N') for (let i = 0; i < N * N; i++) if (memPic.v[i] > T.outlineHi) memPic.v[i] -= 18; // seen from behind
+  return { bone, membrane: memPic };
 }
 
-// ---- Horns (HeadTop): long, swept back and up.
+// ---- Horns (HeadTop): long, curved, sweeping back and then up.
 function horns(dir) {
   if (dir === 'W') return horns('E').mirrored();
-  const m = M(), far = M();
   if (dir === 'E') {
-    m.chain([[45, 9, 1.8], [41, 5, 1.3], [36, 2, 0.8]]);
-    far.chain([[48, 8.5, 1.4], [45, 4, 1], [41, 1, 0.6]]);
-    const p = shade(far, { far: true }).over(shade(m));
-    return p.dot([[36, 1], [41, 0]], T.claw);
+    const near = M().chain([[47, 7.5, 1.5], [43.5, 5.8, 1.2], [40.5, 5.2, 1], [38, 3.4, 0.8], [37.8, 1.2, 0.5]]);
+    const far = M().chain([[49, 7, 1.2], [46, 4.8, 1], [43.5, 3.8, 0.8], [41.8, 2, 0.6], [42, 0.5, 0.4]]);
+    return shade(far, { far: true }).over(shade(near)).dot([[37, 0], [41, 0]], T.claw);
   }
-  m.chain([[28, 8, 1.8], [24.5, 4, 1.3], [21.5, 0.8, 0.8]]);
+  const m = M().chain([[29.5, 8, 1.4], [26.5, 6.2, 1.1], [24.5, 4.2, 0.9], [24, 1.5, 0.6]]);
   m.union(m.mirrored());
-  const p = shade(m, { far: dir === 'N' });
-  return p.dot([[21, 0], [42, 0]], T.claw);
+  return shade(m, { far: dir === 'N' }).dot([[23, 0], [40, 0]], T.claw);
 }
 
-// ---- Cheek spikes (HeadSide)
-function cheeks(dir) {
-  if (dir === 'W') return cheeks('E').mirrored();
-  if (dir === 'E') return shade(spikes([[[41, 14], [36.5, 13], [41, 16.5]], [[42, 17.5], [38, 19.5], [42.5, 19.5]]]));
-  const m = spikes([[[26.5, 13.5], [21.5, 12.5], [26.5, 16.5]], [[27, 17], [23, 19], [27.5, 19.5]]]);
-  return shade(m.union(m.mirrored()), { far: dir === 'N' });
-}
-
-// ---- Tail (Tail): long and whip-thin, curling on the ground. Two layers: scales and underside.
+// ---- Tail (Tail layer, behind the body): long, thin, curling at the tip. Scales + underside layers.
 function tailMask(dir) {
   if (dir === 'W') return tailMask('E').mirrored();
   const m = M();
-  if (dir === 'E') return m.chain([[13, 33, 4.5], [7, 35, 3.8], [3, 40, 3], [4, 46, 2.4], [10, 50, 1.8], [18, 51, 1.3], [25, 50, 0.9]]);
-  if (dir === 'S') return m.chain([[20, 49, 2.6], [12, 51, 2.4], [6, 50.5, 2], [3, 47, 1.5], [3.5, 43, 1], [6, 41, 0.7]]);
-  return m.chain([[32, 40, 4], [32, 48, 3.4], [33, 54, 2.6], [37, 58, 1.8], [43, 59, 1.2], [48, 57.5, 0.8]]);
+  if (dir === 'E') return m.chain([[13, 31, 3.4], [8, 33, 2.8], [4, 37, 2.3], [2.5, 42, 1.9], [4, 46.5, 1.6], [8.5, 48.6, 1.3], [12.5, 47.5, 1], [12.6, 44.6, 0.8], [10.3, 43.6, 0.6]]);
+  if (dir === 'S') return m.chain([[24, 44, 2], [16, 47.5, 1.8], [9, 48, 1.5], [5, 45.5, 1.2], [5.8, 42.2, 0.9], [8.6, 41.6, 0.6]]);
+  return m.chain([[32, 40, 2.6], [32, 47, 2.2], [33.5, 52, 1.8], [37, 55.5, 1.4], [41, 55, 1], [42, 52, 0.7], [40, 50.5, 0.5]]);
 }
 function tail(dir) {
-  const m = tailMask(dir), pic = shade(m, { scales: true });
-  const under = new Pic();
+  const m = tailMask(dir), pic = shade(m, { scales: true }), under = new Pic();
   if (dir !== 'N') {
-    // underside: the band of the tail nearest its lower/shadow edge
-    const inner = m.interior();
-    inner.each((x, y) => { if (stepsOut(m, x, y, 0.3, 1, 2) <= 2) { under.set(x, y, pic.get(x, y) === T.shade ? T.shade : T.base); pic.set(x, y, -1); } });
+    m.interior().each((x, y) => { if (stepsOut(m, x, y, 0.3, 1, 2) <= 2) { under.set(x, y, pic.get(x, y) === T.shade ? T.shade : T.base); pic.set(x, y, -1); } });
   }
   return { scales: pic, under };
 }
 
-// ---- Underbelly plates (Chest): banded throat and belly scales.
+// ---- Underbelly (Chest marking, default on): pale banded throat and belly plates.
 function belly(dir) {
   const p = new Pic();
   if (dir === 'N') return p;
   if (dir === 'W') return belly('E').mirrored();
   const t = torsoMask(dir), inner = t.interior();
   if (dir === 'S') {
-    const region = M().ellipse(32, 31, 5.5, 7.5).chain([[32, 21, 2.5], [32, 26, 3.5]]);
-    inner.each((x, y) => { if (region.has(x, y)) p.set(x, y, (y % 3 === 0) ? T.mid : (Math.abs(x - 31.5) > 4 ? T.shade : T.base)); });
+    const region = M().chain([[32, 17, 1.6], [32, 26, 2.6]]).ellipse(32, 31, 4, 5.5);
+    inner.each((x, y) => { if (region.has(x, y)) p.set(x, y, y % 2 === 0 ? T.mid : T.base); });
     return p;
   }
   inner.each((x, y) => {
-    const bottom = y > 35 && stepsOut(t, x, y, 0, 1, 5) <= 5;          // underside of the barrel
-    const throat = x > 38 && y < 34 && stepsOut(t, x, y, 1, 0.2, 3) <= 3; // front of the neck
-    if (bottom) p.set(x, y, x % 3 === 0 ? T.mid : T.base);
-    else if (throat) p.set(x, y, y % 3 === 0 ? T.mid : T.base);
+    const bottom = y > 34 && stepsOut(t, x, y, 0, 1, 3) <= 3;           // underside of the barrel
+    const throat = x > 39 && y < 32 && stepsOut(t, x, y, 1, 0.3, 3) <= 2; // front of the neck
+    if (bottom) p.set(x, y, x % 2 === 0 ? T.mid : T.base);
+    else if (throat) p.set(x, y, y % 2 === 0 ? T.mid : T.base);
   });
   return p;
-}
-
-// ---- Back spines (Chest): a ridge down the neck and spine.
-function spinesPic(dir) {
-  if (dir === 'S') return new Pic();
-  if (dir === 'W') return spinesPic('E').mirrored();
-  if (dir === 'E') {
-    const s = [[42, 20], [40, 24], [37, 27.5], [31, 27], [25, 26.5], [19, 27], [13, 27.5]];
-    return shade(spikes(s.map(([x, y]) => [[x - 1.5, y + 1], [x - 2.5, y - 2.5], [x + 1.5, y + 0.5]])), { flat: true });
-  }
-  const list = [];
-  for (let y = 19; y <= 41; y += 5) list.push([[29, y + 2.5], [32, y - 2.5], [35, y + 2.5]]);
-  return shade(spikes(list));
 }
 
 // ================================================================= BUILD
@@ -385,7 +406,7 @@ const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
 const DRAW = [
   ['wings_membrane', 'membrane'], ['wings_bone', 'skin'], ['tail', 'skin'], ['tail_underside', 'under'],
   ['hind_far', 'skin'], ['front_far', 'skin'], ['body', 'skin'], ['underbelly', 'belly'],
-  ['hind_near', 'skin'], ['front_near', 'skin'], ['head', 'skin'], ['eyes', 'eyes'], ['cheek_spikes', 'skin'], ['horns', 'horns'],
+  ['hind_near', 'skin'], ['front_near', 'skin'], ['head', 'skin'], ['eyes', 'eyes'], ['horns', 'horns'],
 ];
 // Default colours: keep in sync with Resources/Prototypes/_WoF/Species/skywing.yml.
 const COL = { skin: '#c8402a', membrane: '#f39c12', belly: '#f2c14e', horns: '#d4a056', under: '#f2c14e', spines: '#7a1c10', eyes: '#ffd23a' };
@@ -451,9 +472,7 @@ function build(previewPath) {
     tail: sheet(d => Tl(d).scales),
     tail_underside: sheet(d => Tl(d).under),
     horns: sheet(horns),
-    cheek_spikes: sheet(cheeks),
     underbelly: sheet(belly),
-    back_spines: sheet(spinesPic),
   };
   const all = { ...parts, ...marks };
 

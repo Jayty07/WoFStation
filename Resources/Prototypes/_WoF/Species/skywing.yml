@@ -139,14 +139,12 @@
       points: 1
       required: true
       defaultMarkings: [ WoFSkyWingHorns ]
-    # Optional extras. No defaultMarkings here: defaults are re-added every time a profile loads,
-    # so an optional marking with a default could never be removed.
-    HeadSide:
-      points: 1
-      required: false
+    # Pale throat and belly plates. Required so the default applies (defaults are re-added on every
+    # profile load); players can still recolor it, including to their scale color.
     Chest:
-      points: 2
-      required: false
+      points: 1
+      required: true
+      defaultMarkings: [ WoFSkyWingUnderbelly ]
     Hair:
       points: 0
       required: false
@@ -211,16 +209,6 @@
     state: horns
 
 - type: marking
-  id: WoFSkyWingCheekSpikes
-  bodyPart: HeadSide
-  markingCategory: HeadSide
-  speciesRestriction: [ SkyWing ]
-  followSkinColor: true
-  sprites:
-  - sprite: _WoF/Mobs/Customization/SkyWing/markings.rsi
-    state: cheek_spikes
-
-- type: marking
   id: WoFSkyWingUnderbelly
   bodyPart: Chest
   markingCategory: Chest
@@ -233,20 +221,6 @@
   sprites:
   - sprite: _WoF/Mobs/Customization/SkyWing/markings.rsi
     state: underbelly
-
-- type: marking
-  id: WoFSkyWingBackSpines
-  bodyPart: Chest
-  markingCategory: Chest
-  speciesRestriction: [ SkyWing ]
-  coloring:
-    default:
-      type:
-        !type:SimpleColoring
-        color: "#7a1c10"
-  sprites:
-  - sprite: _WoF/Mobs/Customization/SkyWing/markings.rsi
-    state: back_spines
 
 # --- Names ---
 

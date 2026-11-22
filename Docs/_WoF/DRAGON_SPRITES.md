@@ -9,7 +9,14 @@ graphic novels or official illustrations, because that art can't be licensed int
 
 ![SkyWing preview](skywing_preview.png)
 
-Default colours, with the optional underbelly and cheek spikes turned on. A normal 32px crewmember stands on the right for scale.
+Default colors. A normal 32px crewmember stands on the right for scale.
+
+SkyWing traits the art follows, from the tribe's canon description: the largest wings of any tribe, long curved
+horns, a thin long snout with a nose spike, an extra horn on the jaw, and red, orange, yellow or rust scales with
+amber eyes. The build is a slender Western dragon: S-curved neck holding the head high, folded wings whose
+claw-tipped finger bones rise far above the back, a pale throat and belly, a small dorsal ridge, digitigrade hind
+legs and a long tail that curls at the tip. The jaw horn, nose spike and dorsal ridge are part of the base
+`head` and `body` sprites.
 
 ## Canvas and directions
 
@@ -55,9 +62,7 @@ Which legs go in which state depends on the direction:
 | `tail` | Tail (behind the body) | Follows scale color |
 | `tail_underside` | Tail | Underside color (default gold `#f2c14e`) |
 | `horns` | HeadTop | Horn color (default `#d4a056`) |
-| `cheek_spikes` | HeadSide (optional) | Follows scale color |
-| `underbelly` | Chest (optional) | Belly color (default `#f2c14e`) |
-| `back_spines` | Chest (optional) | Spine color (default `#7a1c10`) |
+| `underbelly` | Chest (on by default) | Belly color (default `#f2c14e`) |
 
 Extra options, like other horn shapes, frills, underbelly patterns or SeaWing glow stripes, are just more marking states plus a `marking` entry in `Resources/Prototypes/_WoF/Species/<tribe>.yml`.
 
