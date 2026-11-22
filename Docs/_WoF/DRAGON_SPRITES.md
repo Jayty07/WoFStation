@@ -57,7 +57,7 @@ Which legs go in which state depends on the direction:
 
 | State | Layer | Coloring |
 |---|---|---|
-| `wings_membrane` | Wings (drawn behind the body) | Wing color (SkyWing default orange `#f39c12`) |
+| `wings_membrane` | Wings (drawn over the body, under the head) | Wing color (SkyWing default orange `#f39c12`) |
 | `wings_bone` | Wings | Follows scale color |
 | `tail` | Tail (behind the body) | Follows scale color |
 | `tail_underside` | Tail | Underside color (default gold `#f2c14e`) |
@@ -68,9 +68,12 @@ Extra options, like other horn shapes, frills, underbelly patterns or SeaWing gl
 
 ## Drawing order (bottom to top)
 
-wings → tail → far hind leg → far front leg → body → near hind leg → near front leg → head → eyes → horns → worn items
+tail → far hind leg → far front leg → body → near hind leg → near front leg → wings → head → eyes → horns → worn items
 
-The order is the same for all four directions. So anything that should look "behind" in one direction has to be drawn so the body covers it. Wings and tail spread out past the body's outline; they don't sit on top of it.
+The order is the same for all four directions, so each frame is drawn to suit it:
+
+- **Tail** is always behind; it spreads out past the body's outline.
+- **Wings** draw over the body. In the side views the near wing lies over the flank and the far wing shows behind it (with the near wing and body cut out of it). In the front view the wings stand behind the shoulders, so the art leaves out every pixel the body, head or legs would cover. In the back view the folded wings lie over the back.
 
 ## Worn items
 

@@ -15,7 +15,6 @@
   - type: Sprite
     layers:
     # Behind the body
-    - map: [ "enum.HumanoidVisualLayers.Wings" ]
     - map: [ "enum.HumanoidVisualLayers.Tail" ]
     - map: [ "enum.HumanoidVisualLayers.LLeg" ]
     - map: [ "enum.HumanoidVisualLayers.LArm" ]
@@ -30,6 +29,8 @@
     - map: [ "enum.HumanoidVisualLayers.RFoot" ]
     - map: [ "enum.HumanoidVisualLayers.LHand" ]
     - map: [ "enum.HumanoidVisualLayers.RHand" ]
+    # Folded wings lie over the flank (the art cuts away what the body covers in the front view)
+    - map: [ "enum.HumanoidVisualLayers.Wings" ]
     - map: [ "enum.HumanoidVisualLayers.Head" ]
     - map: [ "enum.HumanoidVisualLayers.Snout" ]
     - map: [ "enum.HumanoidVisualLayers.Eyes" ]
@@ -101,7 +102,6 @@
     - HeadTop
   - type: Sprite
     layers:
-    - map: [ "enum.HumanoidVisualLayers.Wings" ]
     - map: [ "enum.HumanoidVisualLayers.Tail" ]
     - map: [ "enum.HumanoidVisualLayers.LLeg" ]
     - map: [ "enum.HumanoidVisualLayers.LArm" ]
@@ -114,6 +114,8 @@
     - map: [ "enum.HumanoidVisualLayers.RFoot" ]
     - map: [ "enum.HumanoidVisualLayers.LHand" ]
     - map: [ "enum.HumanoidVisualLayers.RHand" ]
+    # Folded wings lie over the flank (the art cuts away what the body covers in the front view)
+    - map: [ "enum.HumanoidVisualLayers.Wings" ]
     - map: [ "enum.HumanoidVisualLayers.Head" ]
     - map: [ "enum.HumanoidVisualLayers.Snout" ]
     - map: [ "enum.HumanoidVisualLayers.Eyes" ]

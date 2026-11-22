@@ -237,11 +237,11 @@ const LIMB = {
   handS: () => M().ellipse(26, 47.2, 2.6, 1.4),
   handE_near: () => M().ellipse(40.5, 47.4, 2.7, 1.4),
   handE_far: () => M().ellipse(35.5, 47.4, 2.3, 1.2),
-  legS: () => M().ellipse(21, 35, 3.4, 4.5).chain([[21, 38, 2.4], [20.5, 42, 1.8], [21, 44.5, 1.5]]),
+  legS: () => M().ellipse(22.5, 36, 2.8, 4).chain([[22.8, 39, 2], [23, 43, 1.6]]), // behind the foreleg; only the outer edge shows
   legN: () => M().ellipse(38.5, 37, 3.6, 5).chain([[38.5, 40, 2.6], [39, 44, 2], [39, 46, 1.8]]),
   legE_near: () => M().ellipse(18, 34, 5, 6).chain([[19, 38, 3.2], [15.5, 42.5, 2.2], [17, 46, 1.8]]),
   legE_far: () => M().chain([[14, 37, 3], [11, 42.5, 2], [12.5, 46, 1.6]]),
-  footS: () => M().ellipse(21, 45.8, 2.2, 1.1),
+  footS: () => M().ellipse(23.4, 45.6, 2.1, 1),
   footN: () => M().ellipse(39, 47.5, 2.6, 1.4),
   footE_near: () => M().ellipse(19, 47.6, 2.8, 1.3),
   footE_far: () => M().ellipse(14, 47.6, 2.4, 1.1),
@@ -250,7 +250,7 @@ const CLAWS = {
   handS: [[24, 48], [26, 48], [28, 48]],
   handE_near: [[43, 48], [44, 48], [42, 48]],
   handE_far: [[37, 48], [38, 48]],
-  footS: [[19, 46], [21, 47], [23, 46]],
+  footS: [[21, 46], [22, 46]],
   footE_near: [[21, 48], [22, 48], [20, 48]],
   footE_far: [[16, 48], [17, 48]],
 };
@@ -269,52 +269,79 @@ function limb(kind, side, dir) {
   return limb(kind, side === 'r' ? 'l' : 'r', 'E').mirrored();
 }
 
-// ---- Wings (Wings layer, behind the body). Folded upright: a short arm from the shoulder to the wrist,
-// then five long finger bones fanning up and back, each ending in a hooked claw. The membrane between
-// fingertips is scalloped (pulled in toward the wrist) and its trailing edge runs back down to the hips.
-// Two layers: bone (scale coloured) and membrane.
-function wingSide(sh, wr, tips, trail) {
+// ---- Wings (Wings layer, drawn above the body and legs but under the head). Folded the way SkyWings
+// rest: a thick wing arm runs from the shoulder down to the wrist ("palm"), which rests on the ground with
+// small claws. Four long finger bones rise from the palm, up and back past the hips, each ending in a hooked
+// claw. Membrane fills only the space between the fingers (scalloped at the tips) and ends at the last
+// finger. Two layers: bone (scale coloured) and membrane.
+// Side views: the near wing lies over the flank; the far wing shows behind it, a tone darker.
+// Front view: the wings stand behind the shoulders, so anything the body covers is cut away.
+// Back view: the folded wings lie over the back.
+function wingShape({ sh, palm, tips }, dx = 0, dy = 0) {
+  const mv = ([x, y]) => [x + dx, y + dy];
+  sh = mv(sh); palm = mv(palm); tips = tips.map(mv);
   const bone = M(), mem = M(), claws = [];
-  const poly = [sh, wr, tips[0]];
+  const poly = [palm, tips[0]];
   for (let i = 1; i < tips.length; i++) {
     const a = tips[i - 1], b = tips[i];
-    poly.push([lerp(lerp(a[0], b[0], 0.5), wr[0], 0.1), lerp(lerp(a[1], b[1], 0.5), wr[1], 0.1)], b);
+    poly.push([lerp(lerp(a[0], b[0], 0.5), palm[0], 0.06), lerp(lerp(a[1], b[1], 0.5), palm[1], 0.06)], b);
   }
-  mem.poly([...poly, ...trail]);
-  bone.capsule(...sh, 2.2, ...wr, 1.7);
-  tips.forEach((t, i) => { bone.capsule(...wr, i === 0 ? 1.3 : 0.95, ...t, i === 0 ? 0.65 : 0.5); claws.push([t, [t[0] - wr[0], t[1] - wr[1]]]); });
-  return { bone, mem, claws };
-}
-const WING_E = { sh: [35, 28], wr: [30, 21], tips: [[27, 0.5], [21, 1], [15, 3], [10, 7], [6, 13]], trail: [[9, 18], [14, 23], [21, 26], [28, 27]] };
-const WING_S = { sh: [27, 26], wr: [22, 19], tips: [[21, 0.5], [16, 1], [11, 4], [7, 9], [5, 16]], trail: [[9, 21], [13, 26], [19, 28], [25, 28]] };
-const WING_N = { sh: [27, 26], wr: [22, 19], tips: [[21, 0.5], [16, 1], [11, 4], [7, 9], [5, 16]], trail: [[9, 22], [13, 28], [19, 31], [26, 30]] };
-
-function wingParts(dir) {
-  if (dir === 'W') { const e = wingParts('E'); return { bone: e.bone.mirrored(), mem: e.mem.mirrored() }; }
-  const spec = dir === 'E' ? WING_E : dir === 'S' ? WING_S : WING_N;
-  const s = wingSide(spec.sh, spec.wr, spec.tips, spec.trail);
-  let bone = s.bone, mem = s.mem, claws = s.claws;
-  if (dir !== 'E') {
-    bone = bone.clone().union(s.bone.mirrored()); mem = mem.clone().union(s.mem.mirrored());
-    claws = claws.concat(s.claws.map(([t, d]) => [[N - t[0], t[1]], [-d[0], d[1]]]));
-  }
+  mem.poly(poly);
+  bone.capsule(...sh, 2.4, ...palm, 1.8);          // wing arm
+  bone.ellipse(palm[0], palm[1], 2.2, 1.4);         // palm resting on the ground
+  tips.forEach((t, i) => { bone.capsule(...palm, 1.1, ...t, i === 0 ? 0.8 : 0.72); claws.push([t, [t[0] - palm[0], t[1] - palm[1]]]); });
   mem.minus(bone);
-  const bonePic = shade(bone, { thin: true });
-  for (const [t, d] of claws) claw(bonePic, Math.round(t[0] - 0.5), Math.round(t[1] - 0.5), d[0], d[1], d[0] < 0 ? 1 : -1);
-  return { bone: bonePic, mem };
+  return { bone, mem, claws, palm };
 }
-function wings(dir) {
-  const { bone, mem } = wingParts(dir);
-  const memPic = shade(mem, { flat: true });
-  const boneMask = M(); for (let i = 0; i < N * N; i++) if (bone.v[i] >= 0) boneMask.a[i] = 1;
-  mem.interior().each((x, y) => {
+// The palm sits on the ground (row ~47) behind the near foreleg in side view, outside the legs front and back.
+const WING_E = { sh: [35, 28], palm: [33, 46.6], tips: [[28, 0.5], [19, 2], [11, 6], [4, 14]] };
+const WING_S = { sh: [25.5, 27], palm: [16.5, 46.4], tips: [[21, 0.5], [15, 2], [10, 6], [6, 13]] };
+const WING_N = { sh: [28, 25], palm: [16.5, 47.6], tips: [[21, 0.5], [15, 2], [10, 6], [6, 13]] };
+
+// Everything that stands in front of the wings in the front view.
+function frontOccluder() {
+  const m = torsoMask('S').union(headMask('S'));
+  for (const k of ['armS', 'handS', 'legS', 'footS']) { const l = LIMB[k](); m.union(l).union(l.mirrored()); }
+  return m;
+}
+const maskOfPic = p => { const m = M(); for (let i = 0; i < N * N; i++) if (p.v[i] >= 0) m.a[i] = 1; return m; };
+const clearMask = (p, m) => { m.each((x, y) => p.set(x, y, -1)); return p; };
+
+function wingPics(w, far, hide) {
+  if (hide) { w.bone.minus(hide); w.mem.minus(hide); }
+  const bone = shade(w.bone, { thin: true, far });
+  for (const [t, d] of w.claws) claw(bone, Math.round(t[0] - 0.5), Math.round(t[1] - 0.5), d[0], d[1], d[0] < 0 ? 1 : -1);
+  for (const p of w.palms) { const x = Math.round(p[0] - 0.5), y = Math.round(p[1] - 0.5), s = p[2]; bone.dot([[x + 2 * s, y + 1], [x + 3 * s, y + 1], [x - 2 * s, y + 1]], T.claw); }
+  if (hide) clearMask(bone, hide);
+  const mem = shade(w.mem, { flat: true });
+  const boneMask = maskOfPic(bone);
+  w.mem.interior().each((x, y) => {
     const nearBone = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1]].some(([a, b]) => boneMask.has(x + a, y + b));
-    if (nearBone) memPic.set(x, y, T.base);
-    else if (stepsOut(mem, x, y, 0, 1, 3) <= 1) memPic.set(x, y, 234);
-    else memPic.set(x, y, T.light);
+    mem.set(x, y, nearBone ? T.base : T.light);
   });
-  if (dir === 'N') for (let i = 0; i < N * N; i++) if (memPic.v[i] > T.outlineHi) memPic.v[i] -= 18; // seen from behind
-  return { bone, membrane: memPic };
+  if (far) for (let i = 0; i < N * N; i++) if (mem.v[i] > T.outlineHi) mem.v[i] -= 18;
+  return { bone, membrane: mem };
+}
+// s = which way the palm claws point (+1 = toward +x)
+const withPalms = (w, s) => ({ ...w, palms: [[w.palm[0], w.palm[1], s]] });
+function mirrorShape(w) { return { bone: w.bone.mirrored(), mem: w.mem.mirrored(), claws: w.claws.map(([t, d]) => [[N - t[0], t[1]], [-d[0], d[1]]]), palm: [N - w.palm[0], w.palm[1]] }; }
+
+function wings(dir) {
+  if (dir === 'W') { const e = wings('E'); return { bone: e.bone.mirrored(), membrane: e.membrane.mirrored() }; }
+  if (dir === 'E') {
+    const near = withPalms(wingShape(WING_E), 1), farW = withPalms(wingShape(WING_E, -6, 1), 1);
+    const hide = torsoMask('E').union(headMask('E')).union(near.bone).union(near.mem);
+    const f = wingPics(farW, true, hide), n = wingPics(near, false);
+    return { bone: f.bone.over(n.bone), membrane: f.membrane.over(n.membrane) };
+  }
+  const left = wingShape(dir === 'S' ? WING_S : WING_N), right = mirrorShape(left);
+  const both = {
+    bone: left.bone.clone().union(right.bone), mem: left.mem.clone().union(right.mem),
+    claws: left.claws.concat(right.claws), palms: [[left.palm[0], left.palm[1], -1], [right.palm[0], right.palm[1], 1]],
+  };
+  both.mem.minus(both.bone);
+  if (dir === 'S') return wingPics(both, false, frontOccluder());
+  return wingPics(both, true, headMask('N'));
 }
 
 // ---- Horns (HeadTop): long, curved, sweeping back and then up.
@@ -330,13 +357,15 @@ function horns(dir) {
   return shade(m, { far: dir === 'N' }).dot([[23, 0], [40, 0]], T.claw);
 }
 
-// ---- Tail (Tail layer, behind the body): long, thin, curling at the tip. Scales + underside layers.
+// ---- Tail (Tail layer, behind the body): long and thin, trailing along the ground and curling at the tip. Scales + underside layers.
+const TAIL_THICKNESS = 1.5; // multiplies every tail radius
 function tailMask(dir) {
   if (dir === 'W') return tailMask('E').mirrored();
-  const m = M();
-  if (dir === 'E') return m.chain([[13, 31, 3.4], [8, 33, 2.8], [4, 37, 2.3], [2.5, 42, 1.9], [4, 46.5, 1.6], [8.5, 48.6, 1.3], [12.5, 47.5, 1], [12.6, 44.6, 0.8], [10.3, 43.6, 0.6]]);
-  if (dir === 'S') return m.chain([[24, 44, 2], [16, 47.5, 1.8], [9, 48, 1.5], [5, 45.5, 1.2], [5.8, 42.2, 0.9], [8.6, 41.6, 0.6]]);
-  return m.chain([[32, 40, 2.6], [32, 47, 2.2], [33.5, 52, 1.8], [37, 55.5, 1.4], [41, 55, 1], [42, 52, 0.7], [40, 50.5, 0.5]]);
+  const m = M(), chain = m.chain.bind(m);
+  m.chain = pts => chain(pts.map(([x, y, rad]) => [x, y, Math.max(0.9, rad * TAIL_THICKNESS)]));
+  if (dir === 'E') return m.chain([[13, 31, 3.4], [7, 34, 2.9], [3, 39, 2.4], [2.5, 44, 2], [5, 48, 1.8], [11, 50, 1.6], [19, 50.5, 1.4], [27, 50, 1.2], [32, 48, 1], [32.5, 45, 0.8], [30, 43.8, 0.7], [28.3, 45.3, 0.5]]);
+  if (dir === 'S') return m.chain([[26, 45, 2], [21, 48.5, 1.9], [13, 50.5, 1.7], [6, 50, 1.5], [2, 46.5, 1.3], [2, 42, 1.1], [4.5, 39, 0.9], [7.5, 39.8, 0.7], [7.5, 42.3, 0.5]]);
+  return m.chain([[32, 40, 2.6], [32, 47, 2.3], [33.5, 53, 2], [37.5, 57.5, 1.7], [44, 59.5, 1.4], [50, 58, 1.1], [52.5, 54.5, 0.9], [50.5, 51.5, 0.7], [48, 52.5, 0.5]]);
 }
 function tail(dir) {
   const m = tailMask(dir), pic = shade(m, { scales: true }), under = new Pic();
@@ -404,9 +433,9 @@ const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
 // Draw order of WoFMobSkyWing's sprite layers (bottom to top), with markings on their category's layer.
 // See Docs/_WoF/DRAGON_SPRITES.md. Second value = which colour tints it in previews and the icon.
 const DRAW = [
-  ['wings_membrane', 'membrane'], ['wings_bone', 'skin'], ['tail', 'skin'], ['tail_underside', 'under'],
+  ['tail', 'skin'], ['tail_underside', 'under'],
   ['hind_far', 'skin'], ['front_far', 'skin'], ['body', 'skin'], ['underbelly', 'belly'],
-  ['hind_near', 'skin'], ['front_near', 'skin'], ['head', 'skin'], ['eyes', 'eyes'], ['horns', 'horns'],
+  ['hind_near', 'skin'], ['front_near', 'skin'], ['wings_membrane', 'membrane'], ['wings_bone', 'skin'], ['head', 'skin'], ['eyes', 'eyes'], ['horns', 'horns'],
 ];
 // Default colours: keep in sync with Resources/Prototypes/_WoF/Species/skywing.yml.
 const COL = { skin: '#c8402a', membrane: '#f39c12', belly: '#f2c14e', horns: '#d4a056', under: '#f2c14e', spines: '#7a1c10', eyes: '#ffd23a' };
