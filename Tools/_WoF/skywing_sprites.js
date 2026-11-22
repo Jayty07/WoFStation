@@ -294,7 +294,7 @@ function wingShape(spec, dx = 0, dy = 0) {
   // Knuckles: spread a little across the hand, so the fingers start side by side instead of from one point.
   const knuckles = tips.map((t, i) => {
     const vx = t[0] - palm[0], vy = t[1] - palm[1], l = Math.hypot(vx, vy), ux = vx / l, uy = vy / l;
-    const k = (i - (tips.length - 1) / 2) * 3;
+    const k = (i - (tips.length - 1) / 2) * (spec.knuckle ?? 3);
     return [palm[0] + ux * 3 - uy * k, palm[1] + uy * 3 + ux * k];
   });
   // Each finger has three joints. At every joint it bends a little further toward the front of the folded
@@ -322,29 +322,32 @@ function wingShape(spec, dx = 0, dy = 0) {
     const notch = [lerp(lerp(a[0], b[0], 0.5), palm[0], 0.06), lerp(lerp(a[1], b[1], 0.5), palm[1], 0.06)];
     mem.poly([palm, ...A, notch, ...B.slice().reverse()]);
   }
-  mem.poly([sh, elbow, [lerp(elbow[0], palm[0], 0.3), lerp(elbow[1], palm[1], 0.3)]]); // elbow crook
-  bone.capsule(...sh, 2.3, ...elbow, 2);                // upper arm
-  bone.capsule(...elbow, 2, ...palm, 1.6);              // forearm
+  // membrane between the upper arm and forearm: a small crook triangle, or (armWeb) the whole arm triangle
+  mem.poly([sh, elbow, spec.armWeb ? palm : [lerp(elbow[0], palm[0], 0.3), lerp(elbow[1], palm[1], 0.3)]]);
+  const [rU, rE, rW] = spec.armRadii ?? [2.3, 2, 1.6];   // shoulder, elbow, wrist
+  bone.capsule(...sh, rU, ...elbow, rE);                // upper arm
+  bone.capsule(...elbow, rE, ...palm, rW);              // forearm
   bone.ellipse(palm[0], palm[1], 2.4, 1.5);             // hand on the ground
   paths.forEach((pts, i) => {
-    bone.capsule(...palm, 1.2, ...pts[0], 1.1);          // hand bone
-    const rad = [0.95, 0.85, 0.78, 0.7, 0.62];
+    bone.capsule(...palm, 1, ...pts[0], 0.9);            // hand bone
+    const rad = [0.82, 0.78, 0.72, 0.66, 0.6];
     for (let j = 0; j < 4; j++) bone.capsule(...pts[j], rad[j], ...pts[j + 1], rad[j + 1]); // finger segments
     for (let j = 1; j < 4; j++) bone.ellipse(pts[j][0], pts[j][1], rad[j] + 0.35, rad[j] + 0.35); // joint knuckles
     const t = pts[4], prev = pts[3];
     claws.push([t, [t[0] - prev[0], t[1] - prev[1]]]);
   });
   mem.minus(bone);
-  const arm = M().capsule(...sh, 2.3, ...elbow, 2).capsule(...elbow, 2, ...palm, 1.6).ellipse(palm[0], palm[1], 2.4, 1.5);
+  const arm = M().capsule(...sh, rU, ...elbow, rE).capsule(...elbow, rE, ...palm, rW).ellipse(palm[0], palm[1], 2.4, 1.5);
   return { bone, mem, claws, palm, segs, arm, joints };
 }
 // Side view: the hand rests just behind the near front paw; the elbow sits on top of the back.
 const WING_E = { sh: [36, 29], elbow: [24, 26], palm: [34, 46.8], fan: [[76, 32], [66, 41], [57, 46], [49, 42]] };
 // Front/back views (left wing; the right one is mirrored): the hand rests outside the legs.
-const WING_S = { bend: 6, spread: 5, sh: [25.5, 27], elbow: [21, 23.5], palm: [16.5, 46.4], tips: [[18.5, 1], [14, 2.5], [9.5, 6], [6, 12.5]] };
-// Back view: the upper arm lies along the back to an elbow on top of the flank; the forearm and hand reach
-// forward to the ground beyond the body, so below the elbow the body hides them and the fingers rise from the sides.
-const WING_N = { bend: 6, spread: 5, sh: [28, 24], elbow: [24.5, 33], palm: [25, 45], tips: [[19.5, 1], [15, 2.5], [10.5, 6], [7, 12.5]] };
+// The elbow stands up beside the neck and the forearm runs down the inner side to the hand, with membrane
+// filling the arm triangle; the fingers fan out on the outer side, each visible from fingertip to palm.
+const WING_S = { bend: 6, spread: 6, armWeb: true, knuckle: 3.8, armRadii: [1.7, 1.5, 1.3], sh: [25.5, 27], elbow: [23, 11], palm: [12, 46.4], tips: [[18.5, 1], [14, 2.5], [9.5, 6], [6, 12.5]] };
+// Back view: the same fold seen from behind, with the hands on the ground just outside the hind legs.
+const WING_N = { bend: 6, spread: 6, armWeb: true, knuckle: 3.8, armRadii: [1.7, 1.5, 1.3], sh: [28, 24], elbow: [24, 11], palm: [12.5, 47.6], tips: [[19.5, 1], [15, 2.5], [10.5, 6], [7, 12.5]] };
 
 // Everything that stands in front of the wings in the front view.
 function frontOccluder() {
@@ -419,9 +422,7 @@ function wings(dir) {
   };
   both.mem.minus(both.bone);
   if (dir === 'S') return wingPics(both, false, frontOccluder());
-  const beyond = torsoMask('N'); for (const k of ['legN', 'footN']) { const l = LIMB[k](); beyond.union(l).union(l.mirrored()); }
-  const hidden = M(); beyond.each((x, y) => { if (y > 34) hidden.set(x, y); });
-  return wingPics(both, true, hidden.union(headMask('N')));
+  return wingPics(both, true, headMask('N'));
 }
 
 // ---- Horns (HeadTop): long, curved, sweeping back and then up.
