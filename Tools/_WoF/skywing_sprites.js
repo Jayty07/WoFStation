@@ -279,8 +279,9 @@ function limb(kind, side, dir) {
 // an arm with a hand: the upper arm runs from the shoulder back along the top of the back to the elbow, the
 // forearm comes forward and down to the wrist, and the hand rests on the ground with a thumb claw. Four long
 // fingers grow from the hand's knuckles, rising up and back: the front ones shorter and steeper, the back ones
-// longer, so the fingertips step up toward the rear. Each finger has three joints and curls inward a little at
-// each one, ending in a hooked claw. Membrane is stretched between neighbouring fingers from the palm to the
+// longer, so the fingertips step up toward the rear. The fingers start against the floor beside the wrist and
+// stay under (outside) the forearm; each has three joints and curls inward a little at each one, ending in a
+// hooked claw. Membrane joins neighbouring fingers and the forearm to its nearest finger, from the floor to the
 // scalloped tips, plus a small triangle in the crook of the elbow. Two layers: bone (scale coloured) and membrane.
 // Side views: the near wing lies over the flank; the far wing shows behind it, a tone darker.
 // Front view: the wings stand behind the shoulders, so anything the body covers is cut away.
@@ -291,11 +292,15 @@ function wingShape(spec, dx = 0, dy = 0) {
   const sh = mv(spec.sh), elbow = mv(spec.elbow), palm = mv(spec.palm);
   // Fingers: explicit tips, or a fan of [angle above the backward horizontal, length] pairs (back = -x).
   const tips = spec.tips ? spec.tips.map(mv) : spec.fan.map(([a, l]) => [palm[0] - Math.cos(deg(a)) * l, palm[1] - Math.sin(deg(a)) * l]);
-  // Knuckles sit on the floor beside the wrist, spread across it in the same left-to-right order as the
-  // fingertips, so every finger runs all the way down to the ground without crossing its neighbours.
-  const order = tips.map((t, i) => i).sort((a, b) => tips[a][0] - tips[b][0]);
-  const knuckles = new Array(tips.length);
-  order.forEach((i, rank) => { knuckles[i] = [palm[0] + (rank - (tips.length - 1) / 2) * (spec.knuckle ?? 3), palm[1]]; });
+  // Knuckles sit on the floor just outside the wrist, on the far side of the forearm from the body. The finger
+  // whose direction is closest to the forearm's gets the knuckle nearest the wrist and the rest step outward, so
+  // every finger starts against the floor and stays under the forearm without ever crossing it.
+  const fax = elbow[0] - palm[0], fay = elbow[1] - palm[1], faLen = Math.hypot(fax, fay);
+  const angleToForearm = t => { const vx = t[0] - palm[0], vy = t[1] - palm[1]; return Math.acos((vx * fax + vy * fay) / (Math.hypot(vx, vy) * faLen)); };
+  const order = tips.map((t, i) => i).sort((a, b) => angleToForearm(tips[a]) - angleToForearm(tips[b]));
+  const knuckles = new Array(tips.length), out = Math.sign(tips.reduce((a, t) => a + t[0], 0) / tips.length - palm[0]) || -1;
+  order.forEach((i, rank) => { knuckles[i] = [palm[0] + out * (0.8 + rank * (spec.knuckle ?? 2.2)), palm[1]]; });
+  const nearest = order[0];
   // Each finger has three joints. At every joint it bends a little further toward the front of the folded
   // wing, so the fingers curl inward instead of running straight. The path starts turned slightly outward so
   // the tip still lands near its planned spot.
@@ -319,16 +324,21 @@ function wingShape(spec, dx = 0, dy = 0) {
   for (let i = 1; i < paths.length; i++) {
     const A = paths[i - 1], B = paths[i], a = A[4], b = B[4];
     const notch = [lerp(lerp(a[0], b[0], 0.5), palm[0], 0.06), lerp(lerp(a[1], b[1], 0.5), palm[1], 0.06)];
-    mem.poly([palm, ...A, notch, ...B.slice().reverse()]);
+    mem.poly([...A, notch, ...B.slice().reverse()]);
   }
   // membrane between the upper arm and forearm: a small crook triangle, or (armWeb) the whole arm triangle
+  // webbing from the forearm to its nearest finger, from the floor up to the elbow
+  {
+    const P = paths[nearest], t = P[4];
+    const notch = [lerp(lerp(elbow[0], t[0], 0.5), palm[0], 0.06), lerp(lerp(elbow[1], t[1], 0.5), palm[1], 0.06)];
+    mem.poly([palm, elbow, notch, ...P.slice().reverse()]);
+  }
   mem.poly([sh, elbow, spec.armWeb ? palm : [lerp(elbow[0], palm[0], 0.3), lerp(elbow[1], palm[1], 0.3)]]);
   const [rU, rE, rW] = spec.armRadii ?? [2.3, 2, 1.6];   // shoulder, elbow, wrist
   bone.capsule(...sh, rU, ...elbow, rE);                // upper arm
   bone.capsule(...elbow, rE, ...palm, rW);              // forearm
   bone.ellipse(palm[0], palm[1], 2.4, 1.5);             // hand on the ground
   paths.forEach((pts, i) => {
-    bone.capsule(...palm, 0.9, ...pts[0], 0.9);          // wrist, along the floor
     const rad = [0.82, 0.78, 0.72, 0.66, 0.6];
     for (let j = 0; j < 4; j++) bone.capsule(...pts[j], rad[j], ...pts[j + 1], rad[j + 1]); // finger segments
     for (let j = 1; j < 4; j++) bone.ellipse(pts[j][0], pts[j][1], rad[j] + 0.35, rad[j] + 0.35); // joint knuckles
@@ -340,16 +350,16 @@ function wingShape(spec, dx = 0, dy = 0) {
   return { bone, mem, claws, palm, segs, arm, joints };
 }
 // Side view: the hand rests just behind the near front paw; the elbow sits on top of the back.
-const WING_E = { knuckle: 2.2, sh: [36, 29], elbow: [24, 26], palm: [34, 46.8], fan: [[76, 32], [66, 41], [57, 46], [49, 42]] };
+const WING_E = { sh: [36, 29], elbow: [28, 22.5], palm: [34, 46.8], fan: [[70, 32], [63, 41], [56, 46], [49, 42]] };
 // Front/back views (left wing; the right one is mirrored): the hand rests outside the legs.
 // Front view: the folded wings are seen almost edge-on, as narrow upright bundles just outside the shoulders and
 // front legs. The fingers rise nearly straight from the wrist on the ground to about head height, claws stepped
 // one above the other, with thin slivers of membrane between them.
-const WING_S = { bend: 3, spread: 2, armWeb: true, knuckle: 1.8, armRadii: [1.6, 1.4, 1.2], sh: [25.5, 27], elbow: [20.5, 23], palm: [16.5, 46.4], tips: [[12.5, 3], [14.8, 6.5], [17.1, 10], [19.4, 14]] };
+const WING_S = { bend: 3, spread: 2, armWeb: true, armRadii: [1.6, 1.4, 1.2], sh: [25.5, 27], elbow: [20.5, 23], palm: [16.5, 46.4], tips: [[12.5, 3], [14.8, 6.5], [17.1, 10], [19.4, 14]] };
 // Back view: the wings open into a wide V. The wrist rests on the ground right beside the hind leg, the shortest
 // finger stands nearly straight up next to the body, and the longer fingers fan outward to the top corners with
 // membrane across the whole fan. A short arm runs from the shoulder out to the elbow and down to the wrist.
-const WING_N = { bend: 2, spread: 8, armWeb: true, knuckle: 3, armRadii: [1.7, 1.5, 1.3], sh: [28, 25], elbow: [17, 29], palm: [19, 46.5], tips: [[18.5, 11], [12, 3], [5.5, 1.5], [1, 9]] };
+const WING_N = { bend: 2, spread: 8, armWeb: true, knuckle: 2.6, armRadii: [1.7, 1.5, 1.3], sh: [28, 25], elbow: [17, 29], palm: [19, 46.5], tips: [[13.5, 10], [12, 3], [5.5, 1.5], [1, 9]] };
 
 // Everything that stands in front of the wings in the front view.
 function frontOccluder() {
