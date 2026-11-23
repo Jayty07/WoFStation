@@ -1,6 +1,8 @@
-# Einstein Engines
+<!-- WoF start -->
+# Wings of Fire Station
 
-<p align="center"><img src="https://raw.githubusercontent.com/Simple-Station/Einstein-Engines/master/Resources/Textures/Logo/splashlogo.png" width="512px" /></p>
+<p align="center"><img src="Resources/Textures/Logo/splashlogo.png" alt="Wings of Fire Station logo" width="640px" /></p>
+<!-- WoF end -->
 
 ---
 
