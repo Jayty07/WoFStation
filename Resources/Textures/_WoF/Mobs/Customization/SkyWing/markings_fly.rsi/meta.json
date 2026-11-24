@@ -1,0 +1,79 @@
+{
+    "version": 1,
+    "license": "CC-BY-SA-3.0",
+    "copyright": "Original quadruped SkyWing sprites drawn for WoF Dragon Station (Tools/_WoF/skywing_sprites.js).",
+    "size": {
+        "x": 128,
+        "y": 128
+    },
+    "states": [
+        {
+            "name": "wings_membrane",
+            "directions": 4,
+            "delays": [
+                [
+                    0.16,
+                    0.1,
+                    0.16,
+                    0.1
+                ],
+                [
+                    0.16,
+                    0.1,
+                    0.16,
+                    0.1
+                ],
+                [
+                    0.16,
+                    0.1,
+                    0.16,
+                    0.1
+                ],
+                [
+                    0.16,
+                    0.1,
+                    0.16,
+                    0.1
+                ]
+            ]
+        },
+        {
+            "name": "wings_bone",
+            "directions": 4,
+            "delays": [
+                [
+                    0.16,
+                    0.1,
+                    0.16,
+                    0.1
+                ],
+                [
+                    0.16,
+                    0.1,
+                    0.16,
+                    0.1
+                ],
+                [
+                    0.16,
+                    0.1,
+                    0.16,
+                    0.1
+                ],
+                [
+                    0.16,
+                    0.1,
+                    0.16,
+                    0.1
+                ]
+            ]
+        },
+        {
+            "name": "tail",
+            "directions": 4
+        },
+        {
+            "name": "tail_underside",
+            "directions": 4
+        }
+    ]
+}

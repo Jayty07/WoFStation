@@ -13,6 +13,9 @@ const TEX = path.join(ROOT, 'Resources', 'Textures');
 const OUT_PARTS = path.join(TEX, '_WoF', 'Mobs', 'Species', 'SkyWing', 'parts.rsi');
 const OUT_MARKS = path.join(TEX, '_WoF', 'Mobs', 'Customization', 'SkyWing', 'markings.rsi');
 const DOC_PREVIEW = path.join(ROOT, 'Docs', '_WoF', 'skywing_preview.png');
+const DOC_FLIGHT_PREVIEW = path.join(ROOT, 'Docs', '_WoF', 'skywing_flight_preview.png');
+// Flying art lives next to the ground art: parts.rsi -> parts_fly.rsi
+const flyRsi = dir => dir.replace(/\.rsi$/, '_fly.rsi');
 
 // ---------------------------------------------------------------- PNG I/O (RGBA, non-interlaced)
 function crc32(buf) {
@@ -72,14 +75,22 @@ const blank = (w, h) => ({ w, h, data: Buffer.alloc(w * h * 4) });
 // near row 47 and the body rises above. Each part is built from shapes on a per-direction skeleton and
 // shaded in SS14's style (dark outline, light from the top-left, three tones, a light scale texture).
 const N = 64;
+// Extra pixels on every side of the 64x64 canvas. Art keeps its 64x64 coordinates and may use anything from
+// -PAD to N + PAD - 1, so bigger sprites (spread wings) line up with the normal ones: both are centred on the mob.
+let PAD = 0;
+const size = () => N + 2 * PAD;
+const at = (x, y) => (y + PAD) * size() + x + PAD;
+const onCanvas = (x, y) => x >= -PAD && y >= -PAD && x < N + PAD && y < N + PAD;
+function eachPixel(fn) { for (let y = -PAD; y < N + PAD; y++) for (let x = -PAD; x < N + PAD; x++) fn(x, y); }
+function withPad(pad, fn) { const old = PAD; PAD = pad; try { return fn(); } finally { PAD = old; } }
 const T = { outlineLo: 100, outlineHi: 122, shade: 148, mid: 164, base: 182, light: 210, claw: 42, deep: 69 };
 
 class Mask {
-  constructor() { this.a = new Uint8Array(N * N); }
-  has(x, y) { return x >= 0 && y >= 0 && x < N && y < N && this.a[y * N + x] === 1; }
-  set(x, y, v = 1) { if (x >= 0 && y >= 0 && x < N && y < N) this.a[y * N + x] = v; }
-  each(f) { for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (this.a[y * N + x]) f(x, y); }
-  plot(test) { for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (test(x + 0.5, y + 0.5)) this.a[y * N + x] = 1; return this; }
+  constructor() { this.a = new Uint8Array(size() * size()); }
+  has(x, y) { return onCanvas(x, y) && this.a[at(x, y)] === 1; }
+  set(x, y, v = 1) { if (onCanvas(x, y)) this.a[at(x, y)] = v; }
+  each(f) { eachPixel((x, y) => { if (this.a[at(x, y)]) f(x, y); }); }
+  plot(test) { eachPixel((x, y) => { if (test(x + 0.5, y + 0.5)) this.a[at(x, y)] = 1; }); return this; }
   ellipse(cx, cy, rx, ry) { return this.plot((x, y) => ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1); }
   capsule(x0, y0, r0, x1, y1, r1) {
     const dx = x1 - x0, dy = y1 - y0, l2 = dx * dx + dy * dy || 1;
@@ -94,23 +105,23 @@ class Mask {
   clone() { const m = new Mask(); m.a.set(this.a); return m; }
   mirrored() { const m = new Mask(); this.each((x, y) => m.set(N - 1 - x, y)); return m; }
   // Pixels whose 4-neighbours are all inside (the frame border counts as inside, so cut-off tails stay open).
-  interior() { const m = new Mask(); this.each((x, y) => { const ok = (a, b) => a < 0 || b < 0 || a >= N || b >= N || this.has(a, b); if (ok(x - 1, y) && ok(x + 1, y) && ok(x, y - 1) && ok(x, y + 1)) m.set(x, y); }); return m; }
+  interior() { const m = new Mask(); this.each((x, y) => { const ok = (a, b) => !onCanvas(a, b) || this.has(a, b); if (ok(x - 1, y) && ok(x + 1, y) && ok(x, y - 1) && ok(x, y + 1)) m.set(x, y); }); return m; }
 }
 const M = () => new Mask();
 
 // A Pic is a 64x64 greyscale+alpha frame.
 class Pic {
-  constructor() { this.v = new Int16Array(N * N).fill(-1); }
-  get(x, y) { return x >= 0 && y >= 0 && x < N && y < N ? this.v[y * N + x] : -1; }
-  set(x, y, v) { if (x >= 0 && y >= 0 && x < N && y < N) this.v[y * N + x] = v; }
-  over(p) { for (let i = 0; i < N * N; i++) if (p.v[i] >= 0) this.v[i] = p.v[i]; return this; }
-  mirrored() { const p = new Pic(); for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) p.v[y * N + N - 1 - x] = this.v[y * N + x]; return p; }
+  constructor() { this.v = new Int16Array(size() * size()).fill(-1); }
+  get(x, y) { return onCanvas(x, y) ? this.v[at(x, y)] : -1; }
+  set(x, y, v) { if (onCanvas(x, y)) this.v[at(x, y)] = v; }
+  over(p) { for (let i = 0; i < p.v.length; i++) if (p.v[i] >= 0) this.v[i] = p.v[i]; return this; }
+  mirrored() { const p = new Pic(); eachPixel((x, y) => p.set(N - 1 - x, y, this.get(x, y))); return p; }
   dot(pts, v) { for (const [x, y] of pts) this.set(x, y, v); return this; }
 }
 
 // Distance (in steps of `dir`) from p to the outside of mask m, up to `max`.
 function stepsOut(m, x, y, dx, dy, max) {
-  for (let k = 1; k <= max; k++) { const a = Math.round(x + dx * k), b = Math.round(y + dy * k); if (a < 0 || b < 0 || a >= N || b >= N) return 99; if (!m.has(a, b)) return k; }
+  for (let k = 1; k <= max; k++) { const a = Math.round(x + dx * k), b = Math.round(y + dy * k); if (!onCanvas(a, b)) return 99; if (!m.has(a, b)) return k; }
   return 99;
 }
 
@@ -118,7 +129,7 @@ function stepsOut(m, x, y, dx, dy, max) {
 // bands), thin (lighter edges).
 function shade(m, opts = {}) {
   const p = new Pic(), off = opts.far ? -18 : 0;
-  const inside = (a, b) => a < 0 || b < 0 || a >= N || b >= N || m.has(a, b);
+  const inside = (a, b) => !onCanvas(a, b) || m.has(a, b);
   m.each((x, y) => {
     let v;
     const outDown = !inside(x, y + 1) || !inside(x + 1, y), outUp = !inside(x, y - 1) || !inside(x - 1, y);
@@ -168,7 +179,7 @@ function claw(p, x, y, dx, dy, curl = 1) {
 // (dx,dy), grow a 2-pixel spike that way. Optional region filter.
 function ridge(m, p, dx, dy, step, filter = () => true) {
   let n = 0;
-  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+  for (let y = -PAD; y < N + PAD; y++) for (let x = -PAD; x < N + PAD; x++) {
     if (!m.has(x, y) || m.has(x + dx, y + dy) || !filter(x, y)) continue;
     if (n++ % step) continue;
     p.set(x + dx, y + dy, T.outlineHi); p.set(x + 2 * dx, y + 2 * dy, T.outlineLo);
@@ -374,14 +385,14 @@ function frontOccluder() {
   for (const k of ['armS', 'handS', 'legS', 'footS']) { const l = LIMB[k](); m.union(l).union(l.mirrored()); }
   return m;
 }
-const maskOfPic = p => { const m = M(); for (let i = 0; i < N * N; i++) if (p.v[i] >= 0) m.a[i] = 1; return m; };
+const maskOfPic = p => { const m = M(); for (let i = 0; i < p.v.length; i++) if (p.v[i] >= 0) m.a[i] = 1; return m; };
 const clearMask = (p, m) => { m.each((x, y) => p.set(x, y, -1)); return p; };
 
 function wingPics(w, far, hide) {
   if (hide) { w.bone.minus(hide); w.mem.minus(hide); }
   const bone = shade(w.bone, { thin: true, far });
   for (const [t, d] of w.claws) claw(bone, Math.round(t[0] - 0.5), Math.round(t[1] - 0.5), d[0], d[1], d[0] < 0 ? 1 : -1);
-  for (const p of w.palms) { const x = Math.round(p[0] - 0.5), y = Math.round(p[1] - 0.5), s = p[2]; bone.dot([[x + 2 * s, y + 1], [x + 3 * s, y + 1], [x - 2 * s, y + 1]], T.claw); }
+  for (const p of w.palms) { const x = Math.round(p[0] - 0.5), y = Math.round(p[1] - 0.5), s = p[2]; if (s) bone.dot([[x + 2 * s, y + 1], [x + 3 * s, y + 1], [x - 2 * s, y + 1]], T.claw); }
   // Plate seams: a dark line across each arm and finger bone every 3 pixels, like segmented scutes.
   for (const [a, b, half] of w.segs) {
     const len = Math.hypot(b[0] - a[0], b[1] - a[1]), ux = (b[0] - a[0]) / len, uy = (b[1] - a[1]) / len;
@@ -408,18 +419,18 @@ function wingPics(w, far, hide) {
   // (light comes from the top left). Outline only where it meets open air, so even one-pixel strips between
   // fingers read as skin.
   const mem = new Pic(), boneMask = maskOfPic(bone);
-  const open = (x, y) => x >= 0 && y >= 0 && x < N && y < N && !w.mem.has(x, y) && !boneMask.has(x, y);
+  const open = (x, y) => onCanvas(x, y) && !w.mem.has(x, y) && !boneMask.has(x, y);
   const tones = [164, 182, 196, 210, 222];
   w.mem.each((x, y) => {
     if (boneMask.has(x, y)) return;
     const d = Math.min(...w.palms.map(p => Math.hypot(x + 0.5 - p[0], y + 0.5 - p[1])));
-    let v = tones[Math.min(4, Math.max(0, Math.floor((d - 8) / 7)))];
+    let v = tones[Math.min(4, Math.max(0, Math.floor((d - 8) / (w.toneStep ?? 7))))];
     if (boneMask.has(x - 1, y - 1) || boneMask.has(x, y - 1)) v = Math.max(T.shade, v - 30);
     if (open(x, y + 1) || open(x + 1, y)) v = T.outlineHi;
     else if (open(x, y - 1) || open(x - 1, y)) v -= 12;
     mem.set(x, y, v);
   });
-  if (far) for (let i = 0; i < N * N; i++) if (mem.v[i] > T.outlineHi) mem.v[i] -= 18;
+  if (far) for (let i = 0; i < mem.v.length; i++) if (mem.v[i] > T.outlineHi) mem.v[i] -= 18;
   return { bone, membrane: mem };
 }
 // s = which way the palm claws point (+1 = toward +x)
@@ -501,29 +512,169 @@ function belly(dir) {
   return p;
 }
 
+// ================================================================= FLIGHT POSE
+// While a dragon is airborne the client swaps every layer from its ground RSI to a sibling "_fly" RSI that has the
+// same state (parts.rsi -> parts_fly.rsi), and back on landing: Content.Client/_WoF/Flight/DragonFlightPoseSystem.cs.
+// States without a flying version keep their ground art, so the head, body, eyes, horns and belly are shared.
+//   markings_fly.rsi (128x128)  wings_bone, wings_membrane: spread wings, a looping 4-frame wingbeat (up, level,
+//                               down, level); tail, tail_underside: tail trailing behind
+//   parts_fly.rsi (64x64)       front_*, hind_*: forelegs folded up under the chest, hind legs trailing
+const FLIGHT_PAD = 32;                        // the flight canvas is 64 + 2 * 32 = 128 pixels
+const FLAP_POSE = [0, 1, 2, 1];               // pose shown on each frame: 0 up, 1 level, 2 down
+const FLAP_DELAYS = [0.16, 0.1, 0.16, 0.1];   // seconds per frame; the wings linger at the top and bottom
+
+// A spread wing is the same arm, hand and four jointed fingers as the folded one, opened out: fingers fan from
+// the hand, curve a little at each joint, and end in hooked claws. Membrane fills the space between fingers, in
+// front of the arm (shoulder-elbow-hand), and from the last finger back along the trailing edge to the body.
+function spreadWing({ sh, elbow, hand, tips, trail, bend = 5 }) {
+  const bone = M(), mem = M(), claws = [], joints = [], B = deg(bend);
+  const paths = tips.map(t => {
+    const L = Math.hypot(t[0] - hand[0], t[1] - hand[1]) / 4;
+    let ux = (t[0] - hand[0]) / (4 * L), uy = (t[1] - hand[1]) / (4 * L);
+    const turn = a => { const c = Math.cos(a), sn = Math.sin(a); [ux, uy] = [ux * c - uy * sn, ux * sn + uy * c]; };
+    turn(1.5 * B);
+    const pts = [hand];
+    for (let j = 0; j < 4; j++) {
+      if (j > 0) { turn(-B); joints.push([pts[j], [ux, uy]]); }
+      pts.push([pts[j][0] + ux * L, pts[j][1] + uy * L]);
+    }
+    claws.push([pts[4], [ux, uy]]);
+    return pts;
+  });
+  const notch = (a, b) => [lerp(lerp(a[0], b[0], 0.5), hand[0], 0.14), lerp(lerp(a[1], b[1], 0.5), hand[1], 0.14)];
+  for (let i = 1; i < paths.length; i++) mem.poly([...paths[i - 1], notch(paths[i - 1][4], paths[i][4]), ...paths[i].slice().reverse()]);
+  mem.poly([sh, elbow, hand]);
+  mem.poly([hand, ...paths[paths.length - 1].slice(1), ...trail, sh, elbow]);
+  bone.capsule(...sh, 2.4, ...elbow, 2).capsule(...elbow, 2, ...hand, 1.7).ellipse(hand[0], hand[1], 2.1, 2.1);
+  const rad = [1.15, 1, 0.92, 0.82, 0.7];
+  for (const pts of paths) {
+    for (let j = 0; j < 4; j++) bone.capsule(...pts[j], rad[j], ...pts[j + 1], rad[j + 1]);
+    for (let j = 1; j < 4; j++) bone.ellipse(pts[j][0], pts[j][1], rad[j] + 0.3, rad[j] + 0.3);
+  }
+  mem.minus(bone);
+  const arm = M().capsule(...sh, 2.4, ...elbow, 2).capsule(...elbow, 2, ...hand, 1.7);
+  return { bone, mem, claws, joints, arm, palm: hand, segs: [[sh, elbow, 2], [elbow, hand, 2]], palms: [[hand[0], hand[1], 0]], toneStep: 13 };
+}
+
+// Side view (east; west mirrors): the near wing swings toward the camera, the far wing away from it.
+const FLY_E = [
+  { // up
+    near: { sh: [34, 28], elbow: [32, 18], hand: [29, 9], tips: [[23, -22], [4, -24], [-14, -13], [-19, 7]], trail: [[-5, 14], [8, 21], [23, 28]] },
+    far: { sh: [38, 27], elbow: [37, 16], hand: [36, 6], tips: [[34, -23], [17, -26], [-1, -19], [-8, -2]], trail: [[3, 10], [16, 20], [29, 27]] },
+  },
+  { // level
+    near: { sh: [34, 30], elbow: [30, 34], hand: [25, 38], tips: [[6, 58], [-12, 62], [-24, 53], [-24, 40]], trail: [[-9, 37], [6, 35], [22, 35]], bend: -4 },
+    far: { sh: [36, 27], elbow: [33, 21], hand: [29, 15], tips: [[14, -10], [-4, -14], [-18, -5], [-21, 10]], trail: [[-7, 16], [8, 21], [26, 27]] },
+  },
+  { // down
+    near: { sh: [34, 31], elbow: [33, 38], hand: [30, 45], tips: [[26, 79], [8, 82], [-10, 73], [-16, 56]], trail: [[-3, 47], [9, 40], [24, 35]], bend: -4 },
+    far: { sh: [38, 31], elbow: [38, 39], hand: [37, 45], tips: [[38, 76], [22, 80], [7, 73], [0, 58]], trail: [[11, 49], [22, 41], [32, 34]], bend: -4 },
+  },
+];
+// Front and back views: the viewer's left wing; the other mirrors it.
+const FLY_S = [
+  { sh: [26, 27], elbow: [20, 19], hand: [14, 11], tips: [[9, -22], [-8, -23], [-21, -9], [-18, 11]], trail: [[-4, 17], [9, 25], [24, 35]], bend: -4 },           // up
+  { sh: [26, 27], elbow: [18, 23], hand: [11, 20], tips: [[-5, -1], [-24, 7], [-27, 24], [-13, 40]], trail: [[-2, 35], [8, 33.5], [17, 34.5], [25, 38]], bend: -4 }, // level
+  { sh: [26, 28], elbow: [19, 32], hand: [13, 36], tips: [[-15, 30], [-22, 45], [-13, 61], [4, 67]], trail: [[9, 55], [17, 46], [26, 39]], bend: -4 },             // down
+];
+function flyWing(dir, frame) {
+  if (dir === 'W') { const e = flyWing('E', frame); return { bone: e.bone.mirrored(), membrane: e.membrane.mirrored() }; }
+  const pose = FLAP_POSE[frame];
+  if (dir === 'E') {
+    const near = spreadWing(FLY_E[pose].near), farW = spreadWing(FLY_E[pose].far);
+    const hide = torsoMask('E').union(headMask('E')).union(near.bone).union(near.mem);
+    for (const k of ['frontE_near', 'frontE_far', 'hindE_near', 'hindE_far']) hide.union(FLY_LIMB[k]());
+    const f = wingPics(farW, true, hide), n = wingPics(near, false);
+    return { bone: f.bone.over(n.bone), membrane: f.membrane.over(n.membrane) };
+  }
+  const left = spreadWing(FLY_S[pose]), right = mirrorShape(left);
+  const both = {
+    bone: left.bone.clone().union(right.bone), mem: left.mem.clone().union(right.mem), arm: left.arm.clone().union(right.arm),
+    claws: left.claws.concat(right.claws), joints: left.joints.concat(right.joints), segs: left.segs.concat(right.segs),
+    palms: [...left.palms, [N - left.palm[0], left.palm[1], 0]], toneStep: left.toneStep,
+  };
+  both.mem.minus(both.bone);
+  if (dir === 'N') return wingPics(both, true, headMask('N'));
+  // From the front the wings join behind the shoulders: the body, head and tucked legs hide their roots.
+  const hide = torsoMask('S').union(headMask('S'));
+  for (const k of ['frontS', 'hindS']) { const l = FLY_LIMB[k](); hide.union(l).union(l.mirrored()); }
+  return wingPics(both, false, hide);
+}
+
+const FLY_LIMB = {
+  frontE_near: () => M().chain([[37, 33, 4], [34.5, 38.5, 2.6], [39, 41, 1.9]]).ellipse(40.8, 41.4, 2.2, 1.3),
+  frontE_far: () => M().chain([[40, 34, 3], [38.5, 38, 2], [42, 40, 1.6]]).ellipse(43.6, 40.2, 1.8, 1.1),
+  hindE_near: () => M().ellipse(18, 34, 5, 5.5).chain([[18, 38, 3.1], [14, 42, 2.1], [11, 45, 1.6]]).ellipse(9.8, 46, 2.1, 1.2),
+  hindE_far: () => M().chain([[22, 37, 2.6], [19, 42, 1.9], [16.5, 45, 1.5]]).ellipse(15.4, 46, 1.7, 1),
+  frontS: () => M().chain([[26.5, 31, 3.2], [24.8, 37, 2.4], [27, 40, 1.9]]).ellipse(27.8, 41, 2.2, 1.3),
+  hindS: () => M().chain([[24, 38, 2.2], [23.6, 43, 1.7]]).ellipse(23.6, 44.6, 1.9, 1.1),
+  hindN: () => M().ellipse(40.5, 36.5, 4, 5).chain([[40.5, 40, 2.8], [40.4, 45, 2], [40, 49, 1.6]]).ellipse(39.8, 50.6, 2, 1.3),
+};
+const FLY_CLAWS = {
+  frontE_near: [[42, 42], [43, 42]], frontE_far: [[45, 41]], hindE_near: [[8, 47], [7, 46]], hindE_far: [[14, 47]],
+  frontS: [[26, 42], [28, 42], [29, 42]], hindS: [[22, 46], [24, 46]], hindN: [[38, 52], [40, 52], [41, 52]],
+};
+function flyLimb(key, far) { return shade(FLY_LIMB[key](), { far, plates: true }).dot(FLY_CLAWS[key], T.claw); }
+// Same near/far split as the standing legs (see legState).
+function flyLegState(state, dir) {
+  if (dir === 'W') return flyLegState(state, 'E').mirrored();
+  const front = state.startsWith('front'), near = state.endsWith('near');
+  if (dir === 'E') return flyLimb((front ? 'frontE_' : 'hindE_') + (near ? 'near' : 'far'), !near);
+  const both = key => { const p = flyLimb(key, false), q = p.mirrored(); return new Pic().over(p).over(q); };
+  if (dir === 'S') return front && near ? both('frontS') : !front && !near ? both('hindS') : new Pic();
+  return !front && near ? both('hindN') : new Pic();
+}
+
+// Tail trailing behind. The back view keeps the tail drawn in the body sprite, which already trails toward us.
+function flyTail(dir) {
+  if (dir === 'W') { const e = flyTail('E'); return { scales: e.scales.mirrored(), under: e.under.mirrored() }; }
+  if (dir === 'N') return { scales: new Pic(), under: new Pic() };
+  const pts = dir === 'E'
+    ? [[13, 31, 3.4], [5, 31.5, 2.9], [-5, 34, 2.4], [-14, 37, 1.9], [-21, 37, 1.4], [-26, 34, 1], [-28, 30.5, 0.7]]
+    : [[32, 40, 2.2], [33, 46, 1.9], [36, 52, 1.5], [41, 55, 1.2], [45, 53, 0.9], [46, 50, 0.7]];
+  const m = M().chain(pts.map(([x, y, r]) => [x, y, Math.max(0.9, r * TAIL_THICKNESS)]));
+  const scales = shade(m, { scales: true }), under = new Pic();
+  m.interior().each((x, y) => { if (stepsOut(m, x, y, 0.3, 1, 2) <= 2) { under.set(x, y, scales.get(x, y) === T.shade ? T.shade : T.base); scales.set(x, y, -1); } });
+  return { scales, under };
+}
+
 // ================================================================= BUILD
 const DIRS = ['S', 'N', 'E', 'W']; // RSI order: south, north, east, west
 
-function sheet(fn) {
-  const img = blank(N * 2, N * 2);
-  DIRS.forEach((d, i) => {
-    const p = fn(d), ox = (i % 2) * N, oy = Math.floor(i / 2) * N;
-    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-      const v = p.v[y * N + x]; if (v < 0) continue;
-      const k = ((oy + y) * N * 2 + ox + x) * 4; img.data[k] = img.data[k + 1] = img.data[k + 2] = v; img.data[k + 3] = 255;
-    }
+// Copy a picture into a sheet at pixel (ox, oy).
+function blit(img, p, ox, oy) {
+  eachPixel((x, y) => {
+    const v = p.get(x, y); if (v < 0) return;
+    const k = ((oy + y + PAD) * img.w + ox + x + PAD) * 4; img.data[k] = img.data[k + 1] = img.data[k + 2] = v; img.data[k + 3] = 255;
   });
-  return img;
+}
+// Still state: the four directions in a 2x2 grid.
+function sheet(fn) {
+  const z = size(), img = blank(z * 2, z * 2);
+  DIRS.forEach((d, i) => blit(img, fn(d), (i % 2) * z, Math.floor(i / 2) * z));
+  return Object.assign(img, { size: z });
+}
+// Animated state: one row per direction, one column per frame. The engine reads frames left to right, top to
+// bottom, all of one direction before the next.
+function animSheet(fn, delays) {
+  const z = size(), img = blank(z * delays.length, z * 4);
+  DIRS.forEach((d, row) => delays.forEach((_, f) => blit(img, fn(d, f), f * z, row * z)));
+  return Object.assign(img, { size: z, delays });
 }
 
-function meta(states, copyright) {
-  return JSON.stringify({
+// Write an RSI folder: one PNG per state plus meta.json. Every state in an RSI shares one frame size.
+function writeRsi(dir, states, copyright) {
+  fs.rmSync(dir, { recursive: true, force: true });
+  for (const [n, img] of Object.entries(states)) writePng(path.join(dir, `${n}.png`), img);
+  const z = Object.values(states)[0].size;
+  fs.writeFileSync(path.join(dir, 'meta.json'), JSON.stringify({
     version: 1,
     license: 'CC-BY-SA-3.0',
     copyright,
-    size: { x: N, y: N },
-    states: states.map(s => s === 'full' ? { name: s } : { name: s, directions: 4 }),
-  }, null, 4) + '\n';
+    size: { x: z, y: z },
+    states: Object.entries(states).map(([name, img]) => name === 'full' ? { name }
+      : img.delays ? { name, directions: 4, delays: DIRS.map(() => img.delays) } : { name, directions: 4 }),
+  }, null, 4) + '\n');
 }
 
 function compositeInto(dst, src, ox, oy, sx, sy, size, tint) {
@@ -589,6 +740,21 @@ function preview(all) {
   return pv;
 }
 
+// Flight preview: one row per direction (S, N, E, W), one column per distinct wingbeat pose. Ground-sized layers
+// are centred on the bigger flight canvas, as they are in game.
+function flightPreview(all, fly) {
+  const z = N + 2 * FLIGHT_PAD, cell = z + 4, pv = blank(3 * cell + 4, 4 * cell + 4);
+  for (let i = 0; i < pv.data.length; i += 4) { pv.data[i] = 58; pv.data[i + 1] = 66; pv.data[i + 2] = 78; pv.data[i + 3] = 255; }
+  DIRS.forEach((d, row) => {
+    for (let f = 0; f < 3; f++) for (const [n, c] of DRAW) {
+      const img = fly[n] ?? all[n], w = img.size, off = (z - w) / 2;
+      const sx = img.delays ? f * w : (row % 2) * w, sy = img.delays ? row * w : Math.floor(row / 2) * w;
+      compositeInto(pv, img, 4 + f * cell + off, 4 + row * cell + off, sx, sy, w, hex(COL[c]));
+    }
+  });
+  return pv;
+}
+
 function build(previewPath) {
   const wingCache = {}, tailCache = {};
   const W = d => wingCache[d] ??= wings(d), Tl = d => tailCache[d] ??= tail(d);
@@ -611,19 +777,28 @@ function build(previewPath) {
   };
   const all = { ...parts, ...marks };
 
+  // Flying art: same state names in sibling "_fly" RSIs. Wings and tail use the bigger canvas.
+  const partsFly = Object.fromEntries(['front_near', 'front_far', 'hind_near', 'hind_far'].map(st => [st, sheet(d => flyLegState(st, d))]));
+  const marksFly = withPad(FLIGHT_PAD, () => ({
+    wings_membrane: animSheet((d, f) => flyWing(d, f).membrane, FLAP_DELAYS),
+    wings_bone: animSheet((d, f) => flyWing(d, f).bone, FLAP_DELAYS),
+    tail: sheet(d => flyTail(d).scales),
+    tail_underside: sheet(d => flyTail(d).under),
+  }));
+
   // Icon ("full"): one coloured, east-facing frame.
   const full = blank(N, N);
   renderInto(full, all, 2, 0, 0);
-  parts.full = full;
+  parts.full = Object.assign(full, { size: N });
 
-  for (const dir of [OUT_PARTS, OUT_MARKS]) fs.rmSync(dir, { recursive: true, force: true });
   const credit = 'Original quadruped SkyWing sprites drawn for WoF Dragon Station (Tools/_WoF/skywing_sprites.js).';
-  for (const [n, img] of Object.entries(parts)) writePng(path.join(OUT_PARTS, `${n}.png`), img);
-  fs.writeFileSync(path.join(OUT_PARTS, 'meta.json'), meta(Object.keys(parts), credit));
-  for (const [n, img] of Object.entries(marks)) writePng(path.join(OUT_MARKS, `${n}.png`), img);
-  fs.writeFileSync(path.join(OUT_MARKS, 'meta.json'), meta(Object.keys(marks), credit));
+  writeRsi(OUT_PARTS, parts, credit);
+  writeRsi(OUT_MARKS, marks, credit);
+  writeRsi(flyRsi(OUT_PARTS), partsFly, credit);
+  writeRsi(flyRsi(OUT_MARKS), marksFly, credit);
   const pv = preview(all);
   writePng(DOC_PREVIEW, scaleUp(pv, 3));
+  writePng(DOC_FLIGHT_PREVIEW, scaleUp(flightPreview(all, { ...partsFly, ...marksFly }), 2));
   console.log(`wrote ${Object.keys(parts).length} part states, ${Object.keys(marks).length} marking states and ${path.relative(ROOT, DOC_PREVIEW)}`);
   if (previewPath) { writePng(previewPath, scaleUp(pv, 6)); console.log(`preview: ${previewPath}`); }
 }

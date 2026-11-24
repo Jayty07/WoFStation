@@ -1,0 +1,27 @@
+{
+    "version": 1,
+    "license": "CC-BY-SA-3.0",
+    "copyright": "Original quadruped SkyWing sprites drawn for WoF Dragon Station (Tools/_WoF/skywing_sprites.js).",
+    "size": {
+        "x": 64,
+        "y": 64
+    },
+    "states": [
+        {
+            "name": "front_near",
+            "directions": 4
+        },
+        {
+            "name": "front_far",
+            "directions": 4
+        },
+        {
+            "name": "hind_near",
+            "directions": 4
+        },
+        {
+            "name": "hind_far",
+            "directions": 4
+        }
+    ]
+}

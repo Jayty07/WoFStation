@@ -75,6 +75,23 @@ The order is the same for all four directions, so each frame is drawn to suit it
 - **Tail** is always behind; it spreads out past the body's outline. The one exception is the back view, where the tail comes toward the camera over the rump: that frame of the tail is drawn in the `body` sprite instead, and the `tail` and `tail_underside` north frames are empty.
 - **Wings** draw over the body. In the side views the near wing lies over the flank and the far wing shows behind it (with the near wing and body cut out of it). In the front view the wings stand behind the shoulders, so the art leaves out every pixel the body, head or legs would cover. In the back view the folded wings lie over the back.
 
+## Flying
+
+![SkyWing flight preview](skywing_flight_preview.png)
+
+While a dragon is airborne, `Content.Client/_WoF/Flight/DragonFlightPoseSystem.cs` swaps each sprite layer to the same
+state in a sibling `_fly` RSI, and back on landing. Any state missing from the `_fly` RSI keeps its ground art, and a
+tribe with no `_fly` RSIs simply doesn't change pose.
+
+| RSI | Frame size | States |
+|---|---|---|
+| `markings_fly.rsi` | 128×128 | `wings_bone`, `wings_membrane` (4-frame wingbeat: up, level, down, level), `tail`, `tail_underside` |
+| `parts_fly.rsi` | 64×64 | `front_near`, `front_far`, `hind_near`, `hind_far` (tucked legs) |
+
+- **Canvas:** every state in an RSI shares one frame size, but different RSIs can differ. Sprites are centered on the mob, so on the 128×128 canvas the ground sprite's 64×64 area is the middle (x 32–95, y 32–95).
+- **Animated sheets:** 512×512, one row per direction (south, north, east, west) and one column per frame. The frame times are the `delays` in `meta.json`; keep them identical for `wings_bone` and `wings_membrane` so they stay in step.
+- **Back view:** the tail is part of `body`, so the north frames of the flying tail are empty, as on the ground.
+
 ## Worn items
 
 Dragons have head, neck, saddlebag (back), harness (belt), signet (ID) and two pouch slots. Items show
